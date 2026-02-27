@@ -1,8 +1,12 @@
+import 'package:coyote_app/controller/ble_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import 'theme/app_colors.dart';
 import 'screens/main_shell.dart';
 
 void main() {
+  WidgetsFlutterBinding.ensureInitialized();
+  Get.put<BleController>(BleController());
   runApp(const CoyoteApp());
 }
 

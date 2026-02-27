@@ -8,11 +8,13 @@ class SegmentOption<T> {
     required this.label,
     required this.imageUri,
     this.value,
+    required this.isConnected,
   });
 
   final String label;
   final String imageUri;
   final T? value;
+  final bool isConnected;
 }
 
 /// Segmented control: dark container with a sliding blue pill behind the
@@ -65,7 +67,9 @@ class SegmentedControl<T> extends StatelessWidget {
                   width: segmentWidth - margin * 2,
                   child: Container(
                     decoration: BoxDecoration(
-                      color: AppColors.primary,
+                      color: options[0].isConnected
+                          ? AppColors.primary
+                          : AppColors.background,
                       borderRadius: BorderRadius.circular(10),
                     ),
                   ),

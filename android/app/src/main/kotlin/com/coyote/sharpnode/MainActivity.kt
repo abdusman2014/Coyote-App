@@ -1,4 +1,4 @@
-package com.example.coyote_app
+package com.coyote.sharpnode
 
 import io.flutter.embedding.android.FlutterActivity
 

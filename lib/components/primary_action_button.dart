@@ -8,11 +8,13 @@ class PrimaryActionButton extends StatelessWidget {
     required this.label,
     required this.icon,
     required this.onPressed,
+    required this.isOn,
   });
 
   final String label;
   final IconData icon;
   final VoidCallback onPressed;
+  final bool isOn;
 
   @override
   Widget build(BuildContext context) {
@@ -20,7 +22,11 @@ class PrimaryActionButton extends StatelessWidget {
       width: double.infinity,
       child: FilledButton.icon(
         onPressed: onPressed,
-        icon: Icon(icon, size: 22, color: AppColors.textPrimary),
+        icon: Icon(
+          icon,
+          size: 22,
+          color: isOn ? AppColors.textPrimary : AppColors.primary,
+        ),
         label: Text(
           label,
           style: const TextStyle(
@@ -30,7 +36,9 @@ class PrimaryActionButton extends StatelessWidget {
           ),
         ),
         style: FilledButton.styleFrom(
-          backgroundColor: AppColors.primary,
+          backgroundColor: isOn
+              ? AppColors.primary
+              : AppColors.segmentContainer,
           foregroundColor: AppColors.textPrimary,
           padding: const EdgeInsets.symmetric(vertical: 16),
           shape: RoundedRectangleBorder(

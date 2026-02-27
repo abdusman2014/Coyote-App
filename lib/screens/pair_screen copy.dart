@@ -27,7 +27,6 @@ class _PairScreenState extends State<PairScreen> {
   final List<String> _messages = [];
   List<ScanResult> _scanResults = [];
   bool _isConnected = false;
-  List<_ConnectState> _connectStates = [];
 
   @override
   void initState() {
@@ -50,18 +49,13 @@ class _PairScreenState extends State<PairScreen> {
     setState(() {
       _scanResults = [];
       _isScanning = true;
-      _connectStates = [];
     });
     List<ScanResult> results = await _bleController.scan();
-    await Future.delayed(Duration(seconds: 5));
+    await Future.delayed(Duration(seconds: 2));
     print(results);
 
     setState(() {
       _scanResults = results;
-      _connectStates = List<_ConnectState>.filled(
-        results.length,
-        _ConnectState.idle,
-      );
       // _isScanning = false;
     });
     // Future.delayed(const Duration(seconds: 10), () {
@@ -70,26 +64,11 @@ class _PairScreenState extends State<PairScreen> {
   }
 
   Future<void> _connect(BluetoothDevice device) async {
-    await _bleController.connect(
+    _bleController.connect(
       device: device,
       deviceSide: _selectedIndex == 0 ? DeviceSide.left : DeviceSide.right,
     );
-  }
-
-  void _onSideSelected(int index) {
-    setState(() {
-      _selectedIndex = index;
-      _scanResults = [];
-      _connectStates = [];
-      _isScanning = false;
-    });
-    // If this side is already connected, just show it as connected.
-    final side = index == 0 ? DeviceSide.left : DeviceSide.right;
-    final alreadyConnected = _bleController.isConnected(deviceSide: side);
-    if (!alreadyConnected) {
-      // Automatically start a fresh scan for the newly selected side.
-      _startScan();
-    }
+    // setState(() => _isConnected = true);
   }
 
   // Future<void> _sendMessage() async {
@@ -137,7 +116,7 @@ class _PairScreenState extends State<PairScreen> {
                         child: _DeviceCard(
                           label: 'Left',
                           isSelected: _selectedIndex == 0,
-                          onTap: () => _onSideSelected(0),
+                          onTap: () => setState(() => _selectedIndex = 0),
                           imageUri: _selectedIndex == 0
                               ? "assets/images/left_white.svg"
                               : "assets/images/left_grey.svg",
@@ -148,7 +127,7 @@ class _PairScreenState extends State<PairScreen> {
                         child: _DeviceCard(
                           label: 'Right',
                           isSelected: _selectedIndex == 1,
-                          onTap: () => _onSideSelected(1),
+                          onTap: () => setState(() => _selectedIndex = 1),
                           imageUri: _selectedIndex == 1
                               ? "assets/images/right_white.svg"
                               : "assets/images/right_grey.svg",
@@ -166,132 +145,56 @@ class _PairScreenState extends State<PairScreen> {
                     ),
                   ),
                   const SizedBox(height: 12),
-                  Builder(
-                    builder: (context) {
-                      final side = _selectedIndex == 0
-                          ? DeviceSide.left
-                          : DeviceSide.right;
-                      final sideConnected = _bleController.isConnected(
-                        deviceSide: side,
-                      );
-
-                      if (sideConnected) {
-                        return _DeviceListTile(
-                          deviceId: _bleController
-                              .getDeviceName(
-                                _selectedIndex == 0
-                                    ? DeviceSide.left
-                                    : DeviceSide.right,
-                              )
-                              .replaceFirst('PUCK_', ''),
-                          state:
-                              _bleController.isConnected(
-                                deviceSide: _selectedIndex == 0
-                                    ? DeviceSide.left
-                                    : DeviceSide.right,
-                              )
-                              ? _ConnectState.connected
-                              : _ConnectState.idle,
-                          onConnect: () {},
-                        );
-                        // return Padding(
-                        //   padding: const EdgeInsets.only(top: 8.0),
-                        //   child: Row(
-                        //     children: [
-                        //       Icon(
-                        //         Icons.check_circle,
-                        //         color: AppColors.success,
-                        //         size: 20,
-                        //       ),
-                        //       SizedBox(width: 8),
-                        //       Text(
-                        //         'Device connected',
-                        //         style: TextStyle(
-                        //           fontSize: 13,
-                        //           color: AppColors.textPrimary,
-                        //         ),
-                        //       ),
-
-                        //     ],
-                        //   ),
-                        // );
-                      }
-
-                      if (!_isScanning) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "To get your new device set up, select it from the section above and then hit the 'Scan' button located below.",
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                height: 1.5,
-                                color: AppColors.textMuted,
-                              ),
+                  if (!_isScanning) ...[
+                    const Text(
+                      "To get your new device set up, select it from the section above and then hit the 'Scan' button located below.",
+                      style: TextStyle(
+                        fontSize: 12,
+                        fontWeight: FontWeight.w400,
+                        height: 1.5,
+                        color: AppColors.textMuted,
+                      ),
+                    ),
+                    const SizedBox(height: 28),
+                    Center(
+                      child: SizedBox(
+                        width: 170,
+                        child: FilledButton.icon(
+                          onPressed: _startScan,
+                          icon: SvgPicture.asset("assets/images/scanner.svg"),
+                          label: const Text(
+                            'Scan',
+                            style: TextStyle(
+                              fontSize: 14,
+                              fontWeight: FontWeight.w400,
                             ),
-                            const SizedBox(height: 28),
-                            Center(
-                              child: SizedBox(
-                                width: 170,
-                                child: FilledButton.icon(
-                                  onPressed: _startScan,
-                                  icon: SvgPicture.asset(
-                                    "assets/images/scanner.svg",
-                                  ),
-                                  label: const Text(
-                                    'Scan',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                    foregroundColor: AppColors.textPrimary,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                      horizontal: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(22),
-                                    ),
-                                  ),
-                                ),
-                              ),
+                          ),
+                          style: FilledButton.styleFrom(
+                            backgroundColor: AppColors.primary,
+                            foregroundColor: AppColors.textPrimary,
+                            padding: const EdgeInsets.symmetric(
+                              vertical: 14,
+                              horizontal: 12,
                             ),
-                          ],
-                        );
-                      }
-
-                      return _ScanSection(
-                        devices: _scanResults,
-                        connectStates: _connectStates,
-                        onConnect: (int index) async {
-                          setState(() {
-                            if (index < _connectStates.length) {
-                              _connectStates[index] = _ConnectState.connecting;
-                            }
-                          });
-                          try {
-                            await _connect(_scanResults[index].device);
-                            setState(() {
-                              if (index < _connectStates.length) {
-                                _connectStates[index] = _ConnectState.connected;
-                                _isConnected = true;
-                              }
-                            });
-                          } catch (_) {
-                            setState(() {
-                              if (index < _connectStates.length) {
-                                _connectStates[index] = _ConnectState.idle;
-                              }
-                            });
-                          }
-                        },
-                      );
-                    },
-                  ),
+                            shape: RoundedRectangleBorder(
+                              borderRadius: BorderRadius.circular(22),
+                            ),
+                          ),
+                        ),
+                      ),
+                    ),
+                  ] else ...[
+                    _ScanSection(
+                      devices: _scanResults,
+                      onConnect: (int index) async {
+                        _connect(_scanResults[index].device);
+                        setState(() {
+                          _isConnected = true;
+                        });
+                        // setState(() => _isConnected = true);
+                      },
+                    ),
+                  ],
                 ],
               ),
             ),
@@ -464,15 +367,9 @@ class _FootIcon extends StatelessWidget {
 }
 
 class _ScanSection extends StatelessWidget {
-  const _ScanSection({
-    required this.devices,
-    required this.connectStates,
-    required this.onConnect,
-  });
-
+  const _ScanSection({required this.devices, required this.onConnect});
   final List<ScanResult> devices;
-  final List<_ConnectState> connectStates;
-  final Future<void> Function(int index) onConnect;
+  final Function(int index) onConnect;
 
   @override
   Widget build(BuildContext context) {
@@ -499,20 +396,18 @@ class _ScanSection extends StatelessWidget {
           ),
         ),
         const SizedBox(height: 12),
-        ...List.generate(devices.length, (index) {
-          final device = devices[index];
-          final state = index < connectStates.length
-              ? connectStates[index]
-              : _ConnectState.idle;
-          return Padding(
+        ...devices.map(
+          (device) => Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: _DeviceListTile(
-              deviceId: device.device.advName.replaceFirst('PUCK_', ''),
-              state: state,
-              onConnect: () => onConnect(index),
+              deviceId: device.device.advName,
+              onConnect: () {
+                int index = devices.indexOf(device);
+                onConnect(index);
+              },
             ),
-          );
-        }),
+          ),
+        ),
       ],
     );
   }
@@ -566,14 +461,9 @@ class _BluetoothRadarPainter extends CustomPainter {
 }
 
 class _DeviceListTile extends StatelessWidget {
-  const _DeviceListTile({
-    required this.deviceId,
-    required this.state,
-    required this.onConnect,
-  });
+  const _DeviceListTile({required this.deviceId, required this.onConnect});
 
   final String deviceId;
-  final _ConnectState state;
   final VoidCallback onConnect;
 
   @override
@@ -599,33 +489,19 @@ class _DeviceListTile extends StatelessWidget {
               ),
             ),
           ),
-          if (state == _ConnectState.connecting)
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(
-                strokeWidth: 2,
-                valueColor: AlwaysStoppedAnimation<Color>(AppColors.primary),
-              ),
-            )
-          else if (state == _ConnectState.connected)
-            const Icon(Icons.check_circle, color: AppColors.success)
-          else
-            TextButton(
-              onPressed: onConnect,
-              child: const Text(
-                'Connect',
-                style: TextStyle(
-                  fontSize: 14,
-                  fontWeight: FontWeight.w500,
-                  color: AppColors.primary,
-                ),
+          TextButton(
+            onPressed: onConnect,
+            child: const Text(
+              'Connect',
+              style: TextStyle(
+                fontSize: 14,
+                fontWeight: FontWeight.w500,
+                color: AppColors.primary,
               ),
             ),
+          ),
         ],
       ),
     );
   }
 }
-
-enum _ConnectState { idle, connecting, connected }

@@ -4,6 +4,7 @@ import '../components/components.dart';
 import 'control_screen.dart';
 import 'pair_screen.dart';
 import 'presets_screen.dart';
+import 'about_screen.dart';
 
 /// Shell that shows the bottom nav bar and the selected page.
 class MainShell extends StatefulWidget {
@@ -32,7 +33,7 @@ class _MainShellState extends State<MainShell> {
       const ControlScreen(),
       const PairScreen(),
       const PresetsScreen(),
-      _PlaceholderScreen(title: 'About', icon: Icons.info_outline),
+      const AboutScreen(),
     ];
   }
 

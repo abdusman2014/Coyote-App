@@ -15,6 +15,7 @@ class StatusCard extends StatelessWidget {
     this.iconColor,
     this.subtitleColor,
     this.onTap,
+    required this.isConnected,
   });
 
   /// Main label (e.g. "Bluetooth", "Battery").
@@ -30,6 +31,7 @@ class StatusCard extends StatelessWidget {
   final Color? iconColor;
   final Color? subtitleColor;
   final VoidCallback? onTap;
+  final bool isConnected;
 
   @override
   Widget build(BuildContext context) {
@@ -56,7 +58,12 @@ class StatusCard extends StatelessWidget {
           padding: const EdgeInsets.symmetric(horizontal: 18, vertical: 16),
           child: Row(
             children: [
-              SvgPicture.asset(imageUri),
+              SvgPicture.asset(
+                imageUri,
+                color: isConnected
+                    ? AppColors.primary
+                    : AppColors.gaugeTrackDashed,
+              ),
               const SizedBox(width: 10),
               // Icon(
               //   icon,
@@ -70,10 +77,12 @@ class StatusCard extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
-                              color: AppColors.statusCardTitle,
+                              color: isConnected
+                                  ? AppColors.statusCardTitle
+                                  : AppColors.gaugeTrackDashed,
                             ),
                           ),
                           const Spacer(),
@@ -87,10 +96,12 @@ class StatusCard extends StatelessWidget {
                         children: [
                           Text(
                             title,
-                            style: const TextStyle(
+                            style: TextStyle(
                               fontSize: 14,
                               fontWeight: FontWeight.w400,
-                              color: AppColors.statusCardTitle,
+                              color: isConnected
+                                  ? AppColors.statusCardTitle
+                                  : AppColors.gaugeTrackDashed,
                             ),
                           ),
                           if (subtitle != null && subtitle!.isNotEmpty) ...[
@@ -101,7 +112,9 @@ class StatusCard extends StatelessWidget {
                                 fontSize: 8,
                                 color:
                                     subtitleColor ??
-                                    AppColors.statusCardSubtitleBlue,
+                                    (isConnected
+                                        ? AppColors.statusCardSubtitleBlue
+                                        : AppColors.gaugeTrackDashed),
                                 fontWeight: FontWeight.w400,
                               ),
                             ),
