@@ -170,8 +170,7 @@ class _PairScreenState extends State<PairScreen> {
                               imageUri: _selectedIndex == 0
                                   ? "assets/images/left_white.svg"
                                   : "assets/images/left_grey.svg",
-                              deviceName: _bleController
-                                  .getDeviceName(DeviceSide.left)
+                              deviceName: _bleController.deviceInfoName1
                                   .replaceFirst('PUCK_', ''),
                               onDisconnect: () {
                                 _bleController.disconnect(DeviceSide.left);
@@ -190,8 +189,7 @@ class _PairScreenState extends State<PairScreen> {
                               imageUri: _selectedIndex == 1
                                   ? "assets/images/right_white.svg"
                                   : "assets/images/right_grey.svg",
-                              deviceName: _bleController
-                                  .getDeviceName(DeviceSide.right)
+                              deviceName: _bleController.deviceInfoName2
                                   .replaceFirst('PUCK_', ''),
                               onDisconnect: () {
                                 _bleController.disconnect(DeviceSide.left);

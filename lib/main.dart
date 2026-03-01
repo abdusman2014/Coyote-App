@@ -1,11 +1,13 @@
 import 'package:coyote_app/controller/ble_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'theme/app_colors.dart';
 import 'screens/main_shell.dart';
 
-void main() {
+Future<void> main() async {
   WidgetsFlutterBinding.ensureInitialized();
+  await GetStorage.init();
   Get.put<BleController>(BleController());
   runApp(const CoyoteApp());
 }

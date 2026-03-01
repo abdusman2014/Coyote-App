@@ -20,6 +20,15 @@ class _PresetsScreenState extends State<PresetsScreen> {
   int _clampValue(int value) => value.clamp(0, 20);
 
   @override
+  void initState() {
+    // TODO: implement initState
+    _sitValue = _bleController.preSets["sit"] ?? 0;
+    _walkValue = _bleController.preSets["walk"] ?? 0;
+    _runValue = _bleController.preSets["run"] ?? 0;
+    super.initState();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Scaffold(
       body: Container(

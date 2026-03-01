@@ -1,6 +1,7 @@
 import 'package:coyote_app/services/ble_manager.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
+import 'package:get_storage/get_storage.dart';
 import 'package:tuple/tuple.dart';
 
 class Battery {
@@ -27,12 +28,16 @@ class Battery {
 
 class BleController extends GetxController {
   late final Tuple2<BleManager, BleManager> devices;
+  final GetStorage _box = GetStorage();
+  bool _hasTriedReconnect = false;
   BluetoothDevice deviceInfo1 = BluetoothDevice(
     remoteId: DeviceIdentifier("str"),
   );
   BluetoothDevice deviceInfo2 = BluetoothDevice(
     remoteId: DeviceIdentifier("str"),
   );
+  String deviceInfoName1 = "";
+  String deviceInfoName2 = "";
   Battery batteryInfo = Battery();
   int currentPressure = 0;
   int targetPressure = 0;
@@ -51,11 +56,17 @@ class BleController extends GetxController {
   @override
   void onInit() {
     super.onInit();
+
+    _restoreState();
     FlutterBluePlus.adapterState.listen((state) {
       if (state == BluetoothAdapterState.off) {
         _handleBluetoothOff();
+      } else if (state == BluetoothAdapterState.on) {
+        _autoReconnect();
       }
     });
+    // Try an initial reconnect if Bluetooth is already on.
+    _autoReconnect();
   }
 
   /// When Bluetooth adapter is turned off, all connections are lost.
@@ -71,7 +82,37 @@ class BleController extends GetxController {
     pumpStatus = 0;
     selectedPreset = Presets.non;
     scanResults = [];
+    _saveState();
     update();
+  }
+
+  /// Attempt to reconnect to previously known devices when Bluetooth is on.
+  Future<void> _autoReconnect() async {
+    if (_hasTriedReconnect) return;
+
+    final state = await FlutterBluePlus.adapterState.first;
+    if (state != BluetoothAdapterState.on) return;
+
+    _hasTriedReconnect = true;
+
+    final leftId = deviceInfo1.remoteId.str;
+    final rightId = deviceInfo2.remoteId.str;
+
+    try {
+      if (leftId != 'str' && !devices.item1.isConnected) {
+        await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
+      }
+    } catch (_) {
+      // Ignore auto-reconnect errors; user can connect manually.
+    }
+
+    try {
+      if (rightId != 'str' && !devices.item2.isConnected) {
+        await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
+      }
+    } catch (_) {
+      // Ignore auto-reconnect errors; user can connect manually.
+    }
   }
 
   Future<void> connect({
@@ -81,6 +122,9 @@ class BleController extends GetxController {
     if (deviceSide == DeviceSide.left) {
       if (!devices.item1.isConnected) {
         deviceInfo1 = device;
+        if (device.advName != "") {
+          deviceInfoName1 = device.advName;
+        }
         await devices.item1.connect(device);
         devices.item1.messageStream.listen((msg) {
           print(msg);
@@ -91,6 +135,9 @@ class BleController extends GetxController {
     } else {
       if (!devices.item2.isConnected) {
         deviceInfo2 = device;
+        if (device.advName != "") {
+          deviceInfoName2 = device.advName;
+        }
         await devices.item2.connect(device);
         devices.item2.messageStream.listen((msg) {
           print(msg);
@@ -101,15 +148,22 @@ class BleController extends GetxController {
     }
 
     // Notify listeners that connection state changed so dependent UIs can rebuild.
+    _saveState();
     update();
   }
 
   Future<void> disconnect(DeviceSide deviceSide) async {
     if (deviceSide == DeviceSide.left) {
       await devices.item1.disconnect();
+      deviceInfo1 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
+      deviceInfoName1 = "";
     } else {
       await devices.item2.disconnect();
+      deviceInfo2 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
+      deviceInfoName2 = "";
     }
+    update();
+    _saveState();
   }
 
   void splitData(String msg) {
@@ -131,6 +185,7 @@ class BleController extends GetxController {
       pumpStatus = int.parse(parts[1]);
     }
     // Trigger UI updates (e.g. ControlScreen battery widget)
+    _saveState();
     update();
   }
 
@@ -151,6 +206,7 @@ class BleController extends GetxController {
     required DeviceSide deviceSide,
   }) async {
     if (deviceSide == DeviceSide.left) {
+      print(devices.item1);
       if (devices.item1.isConnected) {
         devices.item1.sendMessage(message);
       }
@@ -162,6 +218,15 @@ class BleController extends GetxController {
     devices.item1.messageStream.listen((msg) {
       print(msg);
     });
+  }
+
+  Future<void> setGuage({
+    required int pressure,
+    required DeviceSide deviceSide,
+  }) async {
+    targetPressure = pressure;
+    await sendMessage(message: "5:${pressure.toInt()}", deviceSide: deviceSide);
+    _saveState();
   }
 
   String getDeviceName(DeviceSide deviceSide) {
@@ -211,8 +276,10 @@ class BleController extends GetxController {
     // Clear device info for the disconnected side
     if (side == DeviceSide.left) {
       deviceInfo1 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
+      deviceInfoName1 = "str";
     } else {
       deviceInfo2 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
+      deviceInfoName2 = "str";
     }
 
     // If both sides are now disconnected, reset shared state
@@ -225,7 +292,100 @@ class BleController extends GetxController {
       scanResults = [];
     }
 
-    // Notify UI to rebuild (ControlScreen, PairScreen, etc.)
+    // Persist and notify UI to rebuild (ControlScreen, PairScreen, etc.)
+    _saveState();
+    update();
+  }
+
+  void _saveState() {
+    // Persist last-known devices (by id and name)
+    final leftId = deviceInfo1.remoteId.str;
+    final rightId = deviceInfo2.remoteId.str;
+
+    if (leftId != 'str') {
+      _box.write('leftDeviceId', leftId);
+      _box.write('leftDeviceName', deviceInfoName1);
+    } else {
+      _box.remove('leftDeviceId');
+      _box.remove('leftDeviceName');
+    }
+
+    if (rightId != 'str') {
+      _box.write('rightDeviceId', rightId);
+      _box.write('rightDeviceName', deviceInfoName2);
+    } else {
+      _box.remove('rightDeviceId');
+      _box.remove('rightDeviceName');
+    }
+
+    // Battery and runtime state
+    _box.write('batteryChargingStatus', batteryInfo.chargingStatus);
+    _box.write('batteryPercentage', batteryInfo.batteryPercentage);
+    _box.write('batteryVoltage', batteryInfo.batteryVoltage);
+    _box.write('batteryCurrentCycle', batteryInfo.currentCycle);
+
+    _box.write('currentPressure', currentPressure);
+    _box.write('targetPressure', targetPressure);
+    _box.write('pumpStatus', pumpStatus);
+
+    // Presets and selection
+    _box.write('preSets', preSets);
+    _box.write('selectedPresetIndex', selectedPreset.index);
+  }
+
+  void _restoreState() {
+    // Restore last-known devices (so we know what was paired)
+    final String? leftId = _box.read<String>('leftDeviceId');
+    final String? rightId = _box.read<String>('rightDeviceId');
+
+    if (leftId != null) {
+      deviceInfo1 = BluetoothDevice(remoteId: DeviceIdentifier(leftId));
+      deviceInfoName1 = _box.read<String>('leftDeviceName') ?? "str";
+    }
+    if (rightId != null) {
+      deviceInfo2 = BluetoothDevice(remoteId: DeviceIdentifier(rightId));
+      deviceInfoName2 = _box.read<String>('rightDeviceName') ?? "str";
+    }
+
+    // Battery info
+    final int? chargingStatus = _box.read<int>('batteryChargingStatus');
+    if (chargingStatus != null) {
+      batteryInfo.chargingStatus = chargingStatus;
+      final dynamic percent = _box.read('batteryPercentage');
+      final dynamic voltage = _box.read('batteryVoltage');
+      final int? cycle = _box.read<int>('batteryCurrentCycle');
+      batteryInfo.batteryPercentage = percent is num
+          ? percent.toDouble()
+          : batteryInfo.batteryPercentage;
+      batteryInfo.batteryVoltage = voltage is num
+          ? voltage.toDouble()
+          : batteryInfo.batteryVoltage;
+      batteryInfo.currentCycle = cycle ?? batteryInfo.currentCycle;
+    }
+
+    // Pressures and pump
+    final int? storedCurrent = _box.read<int>('currentPressure');
+    final int? storedTarget = _box.read<int>('targetPressure');
+    final int? storedPump = _box.read<int>('pumpStatus');
+    if (storedCurrent != null) currentPressure = storedCurrent;
+    if (storedTarget != null) targetPressure = storedTarget;
+    if (storedPump != null) pumpStatus = storedPump;
+
+    // Presets
+    final dynamic storedPresets = _box.read('preSets');
+    if (storedPresets is Map) {
+      preSets = storedPresets.map(
+        (key, value) => MapEntry(key.toString(), (value as num).toInt()),
+      );
+    }
+
+    final int? presetIndex = _box.read<int>('selectedPresetIndex');
+    if (presetIndex != null &&
+        presetIndex >= 0 &&
+        presetIndex < Presets.values.length) {
+      selectedPreset = Presets.values[presetIndex];
+    }
+
     update();
   }
 
@@ -254,6 +414,7 @@ class BleController extends GetxController {
     }
     sendMessage(message: "5:$value", deviceSide: deviceSide);
     targetPressure = value;
+    _saveState();
     update();
   }
 
@@ -266,11 +427,13 @@ class BleController extends GetxController {
       preSets["run"] = value;
     }
 
+    _saveState();
     update();
   }
 
   void removePreset() {
     selectedPreset = Presets.non;
+    _saveState();
     update();
   }
 }

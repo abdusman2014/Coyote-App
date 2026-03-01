@@ -85,12 +85,18 @@ class _ControlScreenState extends State<ControlScreen> {
                               onChanged: (value) async {
                                 // Handle value changes
                                 _bleController.removePreset();
-                                await _bleController.sendMessage(
-                                  message: "5:${value.toInt()}",
+                                _bleController.setGuage(
+                                  pressure: value.toInt(),
                                   deviceSide: _sideIndex == 0
                                       ? DeviceSide.left
                                       : DeviceSide.right,
                                 );
+                                // await _bleController.sendMessage(
+                                //   message: "5:${value.toInt()}",
+                                //   deviceSide: _sideIndex == 0
+                                //       ? DeviceSide.left
+                                //       : DeviceSide.right,
+                                // );
                               },
                             )
                           : SvgPicture.asset("assets/images/value_bar.svg"),
@@ -117,14 +123,23 @@ class _ControlScreenState extends State<ControlScreen> {
                         children: [
                           ActionWidget(
                             imageUri:
-                                _bleController.selectedPreset == Presets.sit
+                                _bleController.selectedPreset == Presets.sit &&
+                                    _bleController.isConnected(
+                                      deviceSide: _sideIndex == 0
+                                          ? DeviceSide.left
+                                          : DeviceSide.right,
+                                    )
                                 ? "assets/images/sit_white.svg"
                                 : "assets/images/sit_grey.svg",
                             label: "Sit",
                             isSelected:
-                                _bleController.selectedPreset == Presets.sit,
+                                _bleController.selectedPreset == Presets.sit &&
+                                _bleController.isConnected(
+                                  deviceSide: _sideIndex == 0
+                                      ? DeviceSide.left
+                                      : DeviceSide.right,
+                                ),
                             onPress: () {
-                             
                               _bleController.ApplyPreset(
                                 deviceSide: _sideIndex == 0
                                     ? DeviceSide.left
@@ -135,12 +150,22 @@ class _ControlScreenState extends State<ControlScreen> {
                           ),
                           ActionWidget(
                             imageUri:
-                                _bleController.selectedPreset == Presets.walk
+                                _bleController.selectedPreset == Presets.walk &&
+                                    _bleController.isConnected(
+                                      deviceSide: _sideIndex == 0
+                                          ? DeviceSide.left
+                                          : DeviceSide.right,
+                                    )
                                 ? "assets/images/walk_white.svg"
                                 : "assets/images/walk_grey.svg",
                             label: "Walk",
                             isSelected:
-                                _bleController.selectedPreset == Presets.walk,
+                                _bleController.selectedPreset == Presets.walk &&
+                                _bleController.isConnected(
+                                  deviceSide: _sideIndex == 0
+                                      ? DeviceSide.left
+                                      : DeviceSide.right,
+                                ),
                             onPress: () {
                               _bleController.ApplyPreset(
                                 deviceSide: _sideIndex == 0
@@ -152,12 +177,22 @@ class _ControlScreenState extends State<ControlScreen> {
                           ),
                           ActionWidget(
                             imageUri:
-                                _bleController.selectedPreset == Presets.run
+                                _bleController.selectedPreset == Presets.run &&
+                                    _bleController.isConnected(
+                                      deviceSide: _sideIndex == 0
+                                          ? DeviceSide.left
+                                          : DeviceSide.right,
+                                    )
                                 ? "assets/images/run_white.svg"
                                 : "assets/images/run_grey.svg",
                             label: "Run",
                             isSelected:
-                                _bleController.selectedPreset == Presets.run,
+                                _bleController.selectedPreset == Presets.run &&
+                                _bleController.isConnected(
+                                  deviceSide: _sideIndex == 0
+                                      ? DeviceSide.left
+                                      : DeviceSide.right,
+                                ),
                             onPress: () {
                               _bleController.ApplyPreset(
                                 deviceSide: _sideIndex == 0
