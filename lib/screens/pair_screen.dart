@@ -52,18 +52,44 @@ class _PairScreenState extends State<PairScreen> {
       _isScanning = true;
       _connectStates = [];
     });
-    List<ScanResult> results = await _bleController.scan();
-    await Future.delayed(Duration(seconds: 5));
-    print(results);
-
-    setState(() {
-      _scanResults = results;
-      _connectStates = List<_ConnectState>.filled(
-        results.length,
-        _ConnectState.idle,
+    List<ScanResult> result = [];
+    _bleController.devices.item1.startScan().listen((results) {
+      // scanResults = results;
+      result.addAll(
+        results.where((result) {
+          final name = result.device.advName;
+          return name.startsWith('PUCK_');
+        }).toList(),
       );
-      // _isScanning = false;
+
+      // result = results.where((result) {
+      //   final name = result.device.advName;
+      //   return name.startsWith('PUCK_');
+      // }).toList();
+      print("scan");
+      print(result);
+      setState(() {
+        _scanResults = result;
+        _connectStates = List<_ConnectState>.filled(
+          result.length,
+          _ConnectState.idle,
+        );
+        // _isScanning = false;
+      });
+      // scanResults = results;
+      // update();
     });
+    // await Future.delayed(Duration(seconds: 5));
+    print(result);
+
+    // setState(() {
+    //   _scanResults = result;
+    //   _connectStates = List<_ConnectState>.filled(
+    //     result.length,
+    //     _ConnectState.idle,
+    //   );
+    //   // _isScanning = false;
+    // });
     // Future.delayed(const Duration(seconds: 10), () {
     //   setState(() => _isScanning = false);
     // });
@@ -217,7 +243,12 @@ class _PairScreenState extends State<PairScreen> {
                         // );
                       }
 
-                      if (!_isScanning) {
+                      if (!_isScanning ||
+                          _bleController.isConnected(
+                            deviceSide: _selectedIndex == 0
+                                ? DeviceSide.left
+                                : DeviceSide.right,
+                          )) {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [

@@ -35,7 +35,12 @@ class BleController extends GetxController {
   );
   Battery batteryInfo = Battery();
   int currentPressure = 0;
+  int targetPressure = 0;
   int pumpStatus = 0;
+  Map<String, int> preSets = {"sit": 8, "walk": 10, "run": 20};
+  Presets selectedPreset = Presets.non;
+  List<ScanResult> scanResults = [];
+
   Future<void> connect({
     required BluetoothDevice device,
     required DeviceSide deviceSide,
@@ -122,17 +127,20 @@ class BleController extends GetxController {
     }
   }
 
-  Future<List<ScanResult>> scan() async {
-    List<ScanResult> scanResults = [];
+  Future<void> scan() async {
     devices.item1.startScan().listen((results) {
       // scanResults = results;
       scanResults = results.where((result) {
         final name = result.device.advName;
         return name.startsWith('PUCK_');
       }).toList();
+      print("scan");
+      print(scanResults);
+      // scanResults = results;
+      update();
     });
-    await Future.delayed(Duration(seconds: 2));
-    return scanResults;
+    // await Future.delayed(Duration(seconds: 2));
+    // return scanResults;
   }
 
   bool isConnected({required DeviceSide deviceSide}) {
@@ -142,6 +150,43 @@ class BleController extends GetxController {
       return devices.item2.isConnected;
     }
   }
+
+  void ApplyPreset({
+    required DeviceSide deviceSide,
+    required Presets preset,
+  }) async {
+    selectedPreset = preset;
+    int value = 0;
+    if (preset == Presets.sit) {
+      value = preSets["sit"] ?? 0;
+    } else if (preset == Presets.walk) {
+      value = preSets["walk"] ?? 0;
+    } else {
+      value = preSets["run"] ?? 0;
+    }
+    sendMessage(message: "5:$value", deviceSide: deviceSide);
+    targetPressure = value;
+    update();
+  }
+
+  void setPreset({required Presets preset, required int value}) {
+    if (preset == Presets.sit) {
+      preSets["sit"] = value;
+    } else if (preset == Presets.walk) {
+      preSets["walk"] = value;
+    } else {
+      preSets["run"] = value;
+    }
+
+    update();
+  }
+
+  void removePreset() {
+    selectedPreset = Presets.non;
+    update();
+  }
 }
 
 enum DeviceSide { left, right }
+
+enum Presets { sit, walk, run, non }

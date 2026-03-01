@@ -1,3 +1,4 @@
+import 'package:coyote_app/components/action_widget.dart';
 import 'package:coyote_app/components/vacuum_gauge_slider.dart';
 import 'package:coyote_app/controller/ble_controller.dart';
 import 'package:flutter/material.dart';
@@ -79,9 +80,11 @@ class _ControlScreenState extends State<ControlScreen> {
                               maxValue: 20,
                               currentValue: _bleController.currentPressure
                                   .toDouble(),
-                              targetValue: 14,
+                              targetValue: _bleController.targetPressure
+                                  .toDouble(),
                               onChanged: (value) async {
                                 // Handle value changes
+                                _bleController.removePreset();
                                 await _bleController.sendMessage(
                                   message: "5:${value.toInt()}",
                                   deviceSide: _sideIndex == 0
@@ -92,52 +95,126 @@ class _ControlScreenState extends State<ControlScreen> {
                             )
                           : SvgPicture.asset("assets/images/value_bar.svg"),
                     ),
-                    SegmentedControl<String>(
-                      options: [
-                        SegmentOption(
-                          label: 'Sit',
-                          imageUri: //"assets/images/walk_white.svg",
-                          _activityIndex == 0
-                              ? "assets/images/sit_white.svg"
-                              : "assets/images/sit_grey.svg",
-                          isConnected: _bleController.isConnected(
-                            deviceSide: _sideIndex == 0
-                                ? DeviceSide.left
-                                : DeviceSide.right,
+                    Container(
+                      height: 52,
+                      // padding: const EdgeInsets.symmetric(
+                      //   // vertical: 12,
+                      //   horizontal: 36,
+                      // ),
+                      decoration: BoxDecoration(
+                        color: AppColors.segmentContainer,
+                        borderRadius: BorderRadius.circular(12),
+                        boxShadow: [
+                          BoxShadow(
+                            color: Colors.black.withValues(alpha: 0.2),
+                            blurRadius: 4,
+                            offset: const Offset(0, 1),
                           ),
-                        ),
-                        SegmentOption(
-                          label: 'Walk',
-                          imageUri: _activityIndex == 1
-                              ? "assets/images/walk_white.svg"
-                              : "assets/images/walk_grey.svg",
-                          isConnected: _bleController.isConnected(
-                            deviceSide: _sideIndex == 0
-                                ? DeviceSide.left
-                                : DeviceSide.right,
+                        ],
+                      ),
+                      child: Row(
+                        // mainAxisAlignment: MainAxisAlignment.spaceBetween,
+                        children: [
+                          ActionWidget(
+                            imageUri:
+                                _bleController.selectedPreset == Presets.sit
+                                ? "assets/images/sit_white.svg"
+                                : "assets/images/sit_grey.svg",
+                            label: "Sit",
+                            isSelected:
+                                _bleController.selectedPreset == Presets.sit,
+                            onPress: () {
+                              _bleController.ApplyPreset(
+                                deviceSide: _sideIndex == 0
+                                    ? DeviceSide.left
+                                    : DeviceSide.right,
+                                preset: Presets.sit,
+                              );
+                            },
                           ),
-                        ),
-                        SegmentOption(
-                          label: 'Run',
-                          imageUri: _activityIndex == 2
-                              ? "assets/images/run_white.svg"
-                              : "assets/images/run_grey.svg",
-                          isConnected: _bleController.isConnected(
-                            deviceSide: _sideIndex == 0
-                                ? DeviceSide.left
-                                : DeviceSide.right,
+                          ActionWidget(
+                            imageUri:
+                                _bleController.selectedPreset == Presets.walk
+                                ? "assets/images/walk_white.svg"
+                                : "assets/images/walk_grey.svg",
+                            label: "Walk",
+                            isSelected:
+                                _bleController.selectedPreset == Presets.walk,
+                            onPress: () {
+                              _bleController.ApplyPreset(
+                                deviceSide: _sideIndex == 0
+                                    ? DeviceSide.left
+                                    : DeviceSide.right,
+                                preset: Presets.walk,
+                              );
+                            },
                           ),
-                        ),
-                      ],
-                      selectedIndex: _activityIndex,
-                      onChanged: (i) async {
-                        // await _bleController.sendMessage(
-                        //   deviceSide: DeviceSide.left,
-                        //   message: "Hello World",
-                        // );
-                        setState(() => _activityIndex = i);
-                      },
+                          ActionWidget(
+                            imageUri:
+                                _bleController.selectedPreset == Presets.run
+                                ? "assets/images/run_white.svg"
+                                : "assets/images/run_grey.svg",
+                            label: "Run",
+                            isSelected:
+                                _bleController.selectedPreset == Presets.run,
+                            onPress: () {
+                              _bleController.ApplyPreset(
+                                deviceSide: _sideIndex == 0
+                                    ? DeviceSide.left
+                                    : DeviceSide.right,
+                                preset: Presets.run,
+                              );
+                            },
+                          ),
+                        ],
+                      ),
                     ),
+                    // SegmentedControl<String>(
+                    //   options: [
+                    //     SegmentOption(
+                    //       label: 'Sit',
+                    //       imageUri: //"assets/images/walk_white.svg",
+                    //       _activityIndex == 0
+                    //           ? "assets/images/sit_white.svg"
+                    //           : "assets/images/sit_grey.svg",
+                    //       isConnected: _bleController.isConnected(
+                    //         deviceSide: _sideIndex == 0
+                    //             ? DeviceSide.left
+                    //             : DeviceSide.right,
+                    //       ),
+                    //     ),
+                    //     SegmentOption(
+                    //       label: 'Walk',
+                    //       imageUri: _activityIndex == 1
+                    //           ? "assets/images/walk_white.svg"
+                    //           : "assets/images/walk_grey.svg",
+                    //       isConnected: _bleController.isConnected(
+                    //         deviceSide: _sideIndex == 0
+                    //             ? DeviceSide.left
+                    //             : DeviceSide.right,
+                    //       ),
+                    //     ),
+                    //     SegmentOption(
+                    //       label: 'Run',
+                    //       imageUri: _activityIndex == 2
+                    //           ? "assets/images/run_white.svg"
+                    //           : "assets/images/run_grey.svg",
+                    //       isConnected: _bleController.isConnected(
+                    //         deviceSide: _sideIndex == 0
+                    //             ? DeviceSide.left
+                    //             : DeviceSide.right,
+                    //       ),
+                    //     ),
+                    //   ],
+                    //   selectedIndex: _activityIndex,
+                    //   onChanged: (i) async {
+                    //     // await _bleController.sendMessage(
+                    //     //   deviceSide: DeviceSide.left,
+                    //     //   message: "Hello World",
+                    //     // );
+                    //     setState(() => _activityIndex = i);
+                    //   },
+                    // ),
                     const SizedBox(height: 14),
                     SizedBox(
                       height: 76,
@@ -254,6 +331,47 @@ class _ControlScreenState extends State<ControlScreen> {
 
   void _onBatteryTap() {
     // TODO: Open battery details
+    if (_bleController.isConnected(
+      deviceSide: _sideIndex == 0 ? DeviceSide.left : DeviceSide.right,
+    )) {
+      _showInfoDialog(context);
+    }
+  }
+
+  void _showInfoDialog(BuildContext context) {
+    showDialog(
+      context: context,
+      builder: (BuildContext context) {
+        return AlertDialog(
+          title: const Text('Battery Information'),
+          content: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                'chargingStatus: ${_bleController.batteryInfo.chargingStatus}',
+              ),
+              SizedBox(height: 8),
+              Text(
+                'batteryPercentage: ${_bleController.batteryInfo.batteryPercentage}',
+              ),
+              SizedBox(height: 8),
+              Text(
+                'batteryVoltage: ${_bleController.batteryInfo.batteryVoltage}',
+              ),
+              SizedBox(height: 8),
+              Text('currentCycle: ${_bleController.batteryInfo.currentCycle}'),
+            ],
+          ),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(context).pop(),
+              child: const Text('Close'),
+            ),
+          ],
+        );
+      },
+    );
   }
 
   void _onTurnOff() async {

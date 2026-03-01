@@ -645,6 +645,16 @@ class _VacuumGaugeSliderState extends State<VacuumGaugeSlider> {
   }
 
   @override
+  void didUpdateWidget(VacuumGaugeSlider oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    if (oldWidget.targetValue != widget.targetValue) {
+      setState(() {
+        _targetValue = widget.targetValue;
+      });
+    }
+  }
+
+  @override
   Widget build(BuildContext context) {
     return Container(
       width: 300,

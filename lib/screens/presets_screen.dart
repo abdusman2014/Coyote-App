@@ -1,5 +1,7 @@
+import 'package:coyote_app/controller/ble_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
+import 'package:get/get.dart';
 import '../theme/app_colors.dart';
 
 /// Presets screen showing Sit / Walk / Run rows and language selector.
@@ -14,7 +16,7 @@ class _PresetsScreenState extends State<PresetsScreen> {
   int _sitValue = 8;
   int _walkValue = 10;
   int _runValue = 20;
-
+  final BleController _bleController = Get.find<BleController>();
   int _clampValue(int value) => value.clamp(0, 20);
 
   @override
@@ -54,30 +56,60 @@ class _PresetsScreenState extends State<PresetsScreen> {
                   imageUri: "assets/images/sit_white.svg",
                   label: 'Sit',
                   value: _sitValue,
-                  onIncrement: () =>
-                      setState(() => _sitValue = _clampValue(_sitValue + 1)),
-                  onDecrement: () =>
-                      setState(() => _sitValue = _clampValue(_sitValue - 1)),
+                  onIncrement: () {
+                    _bleController.setPreset(
+                      preset: Presets.sit,
+                      value: _sitValue + 1,
+                    );
+                    setState(() => _sitValue = _clampValue(_sitValue + 1));
+                  },
+                  onDecrement: () {
+                    _bleController.setPreset(
+                      preset: Presets.sit,
+                      value: _sitValue - 1,
+                    );
+                    setState(() => _sitValue = _clampValue(_sitValue - 1));
+                  },
                 ),
                 const SizedBox(height: 16),
                 _PresetTile(
                   imageUri: "assets/images/walk_white.svg",
                   label: 'Walk',
                   value: _walkValue,
-                  onIncrement: () =>
-                      setState(() => _walkValue = _clampValue(_walkValue + 1)),
-                  onDecrement: () =>
-                      setState(() => _walkValue = _clampValue(_walkValue - 1)),
+                  onIncrement: () {
+                    _bleController.setPreset(
+                      preset: Presets.walk,
+                      value: _walkValue + 1,
+                    );
+                    setState(() => _walkValue = _clampValue(_walkValue + 1));
+                  },
+                  onDecrement: () {
+                    _bleController.setPreset(
+                      preset: Presets.walk,
+                      value: _walkValue - 1,
+                    );
+                    setState(() => _walkValue = _clampValue(_walkValue - 1));
+                  },
                 ),
                 const SizedBox(height: 16),
                 _PresetTile(
                   imageUri: "assets/images/run_white.svg",
                   label: 'Run',
                   value: _runValue,
-                  onIncrement: () =>
-                      setState(() => _runValue = _clampValue(_runValue + 1)),
-                  onDecrement: () =>
-                      setState(() => _runValue = _clampValue(_runValue - 1)),
+                  onIncrement: () {
+                    _bleController.setPreset(
+                      preset: Presets.run,
+                      value: _runValue + 1,
+                    );
+                    setState(() => _runValue = _clampValue(_runValue + 1));
+                  },
+                  onDecrement: () {
+                    _bleController.setPreset(
+                      preset: Presets.run,
+                      value: _runValue - 1,
+                    );
+                    setState(() => _runValue = _clampValue(_runValue - 1));
+                  },
                 ),
               ],
             ),

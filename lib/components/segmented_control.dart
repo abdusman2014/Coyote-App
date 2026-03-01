@@ -99,13 +99,7 @@ class SegmentedControl<T> extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 SvgPicture.asset(option.imageUri),
-                                // Icon(
-                                //   option.icon,
-                                //   size: 20,
-                                //   color: isSelected
-                                //       ? AppColors.textPrimary
-                                //       : AppColors.segmentUnselected,
-                                // ),
+                                
                                 const SizedBox(width: 8),
                                 Text(
                                   option.label,
