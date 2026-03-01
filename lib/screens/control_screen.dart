@@ -365,11 +365,15 @@ class _ControlScreenState extends State<ControlScreen> {
     // TODO: Open Bluetooth settings or status
   }
 
-  void _onBatteryTap() {
+  void _onBatteryTap() async {
     // TODO: Open battery details
     if (_bleController.isConnected(
       deviceSide: _sideIndex == 0 ? DeviceSide.left : DeviceSide.right,
     )) {
+      await _bleController.sendMessage(
+        deviceSide: _sideIndex == 0 ? DeviceSide.left : DeviceSide.right,
+        message: "7",
+      );
       _showInfoDialog(context);
     }
   }
@@ -395,8 +399,6 @@ class _ControlScreenState extends State<ControlScreen> {
               Text(
                 'batteryVoltage: ${_bleController.batteryInfo.batteryVoltage}',
               ),
-              SizedBox(height: 8),
-              Text('currentCycle: ${_bleController.batteryInfo.currentCycle}'),
             ],
           ),
           actions: [

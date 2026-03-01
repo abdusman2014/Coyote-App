@@ -13,6 +13,7 @@ class BleManager {
   BluetoothDevice? _device;
   BluetoothCharacteristic? _txChar; // Receive from nRF
   BluetoothCharacteristic? _rxChar; // Send to nRF
+  bool _manualDisconnect = false;
 
   final StreamController<String> _messageController =
       StreamController<String>.broadcast();
@@ -49,7 +50,9 @@ class BleManager {
         _device = null;
         _txChar = null;
         _rxChar = null;
-        onDisconnected?.call();
+        if (_manualDisconnect == false) {
+          onDisconnected?.call();
+        }
       }
     });
 
@@ -57,8 +60,12 @@ class BleManager {
   }
 
   Future<void> disconnect() async {
+    _manualDisconnect = true;
     await _device?.disconnect();
+    _manualDisconnect = false;
     _device = null;
+    _txChar = null;
+    _rxChar = null;
   }
 
   /// Clears connection state without disconnecting or invoking onDisconnected.

@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:coyote_app/services/ble_manager.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:get/get.dart';
@@ -29,8 +30,9 @@ class Battery {
 class BleController extends GetxController {
   late final Tuple2<BleManager, BleManager> devices;
   final GetStorage _box = GetStorage();
-  bool _hasTriedReconnect = false;
   bool isReconnecting = false;
+  Timer? _leftReconnectTimer;
+  Timer? _rightReconnectTimer;
   BluetoothDevice deviceInfo1 = BluetoothDevice(
     remoteId: DeviceIdentifier("str"),
   );
@@ -83,15 +85,16 @@ class BleController extends GetxController {
     pumpStatus = 0;
     selectedPreset = Presets.non;
     scanResults = [];
-    _hasTriedReconnect = false;
     isReconnecting = false;
+    _stopReconnectLoop(DeviceSide.left);
+    _stopReconnectLoop(DeviceSide.right);
     _saveState();
     update();
   }
 
   /// Attempt to reconnect to previously known devices when Bluetooth is on.
   Future<void> _autoReconnect() async {
-    if (_hasTriedReconnect) return;
+    if (isReconnecting) return;
 
     final state = await FlutterBluePlus.adapterState.first;
     if (state != BluetoothAdapterState.on) return;
@@ -101,11 +104,9 @@ class BleController extends GetxController {
 
     // Nothing to reconnect to
     if (leftId == 'str' && rightId == 'str') {
-      _hasTriedReconnect = true;
       return;
     }
 
-    _hasTriedReconnect = true;
     isReconnecting = true;
     update();
 
@@ -136,6 +137,7 @@ class BleController extends GetxController {
           deviceInfoName1 = device.advName;
         }
         await devices.item1.connect(device);
+
         devices.item1.messageStream.listen((msg) {
           print(msg);
           splitData(msg);
@@ -158,6 +160,7 @@ class BleController extends GetxController {
     }
 
     // Notify listeners that connection state changed so dependent UIs can rebuild.
+    _stopReconnectLoop(deviceSide);
     _saveState();
     update();
   }
@@ -172,6 +175,7 @@ class BleController extends GetxController {
       deviceInfo2 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
       deviceInfoName2 = "";
     }
+    _stopReconnectLoop(deviceSide);
     update();
     _saveState();
   }
@@ -283,15 +287,6 @@ class BleController extends GetxController {
   }
 
   void _handleDisconnected(DeviceSide side) {
-    // Clear device info for the disconnected side
-    if (side == DeviceSide.left) {
-      deviceInfo1 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
-      deviceInfoName1 = "str";
-    } else {
-      deviceInfo2 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
-      deviceInfoName2 = "str";
-    }
-
     // If both sides are now disconnected, reset shared state
     if (!devices.item1.isConnected && !devices.item2.isConnected) {
       batteryInfo = Battery();
@@ -301,6 +296,9 @@ class BleController extends GetxController {
       selectedPreset = Presets.non;
       scanResults = [];
     }
+
+    // Kick off background reconnect loop for this side (device powered off / out of range).
+    _startReconnectLoop(side);
 
     // Persist and notify UI to rebuild (ControlScreen, PairScreen, etc.)
     _saveState();
@@ -397,6 +395,65 @@ class BleController extends GetxController {
     }
 
     update();
+  }
+
+  void _startReconnectLoop(DeviceSide side) {
+    if (side == DeviceSide.left) {
+      if (_leftReconnectTimer != null && _leftReconnectTimer!.isActive) return;
+      _leftReconnectTimer = Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => _attemptSideReconnect(DeviceSide.left),
+      );
+    } else {
+      if (_rightReconnectTimer != null && _rightReconnectTimer!.isActive)
+        return;
+      _rightReconnectTimer = Timer.periodic(
+        const Duration(seconds: 5),
+        (_) => _attemptSideReconnect(DeviceSide.right),
+      );
+    }
+  }
+
+  void _stopReconnectLoop(DeviceSide side) {
+    if (side == DeviceSide.left) {
+      _leftReconnectTimer?.cancel();
+      _leftReconnectTimer = null;
+    } else {
+      _rightReconnectTimer?.cancel();
+      _rightReconnectTimer = null;
+    }
+  }
+
+  Future<void> _attemptSideReconnect(DeviceSide side) async {
+    final state = await FlutterBluePlus.adapterState.first;
+    if (state != BluetoothAdapterState.on) {
+      _stopReconnectLoop(side);
+      return;
+    }
+
+    if (side == DeviceSide.left) {
+      final id = deviceInfo1.remoteId.str;
+      if (id == 'str' || devices.item1.isConnected) {
+        _stopReconnectLoop(DeviceSide.left);
+        return;
+      }
+      try {
+        await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
+      } catch (_) {
+        // Ignore and let the timer try again later.
+      }
+    } else {
+      final id = deviceInfo2.remoteId.str;
+      if (id == 'str' || devices.item2.isConnected) {
+        _stopReconnectLoop(DeviceSide.right);
+        return;
+      }
+      try {
+        await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
+      } catch (_) {
+        // Ignore and let the timer try again later.
+      }
+    }
   }
 
   void ApplyPreset({
