@@ -48,6 +48,32 @@ class BleController extends GetxController {
     );
   }
 
+  @override
+  void onInit() {
+    super.onInit();
+    FlutterBluePlus.adapterState.listen((state) {
+      if (state == BluetoothAdapterState.off) {
+        _handleBluetoothOff();
+      }
+    });
+  }
+
+  /// When Bluetooth adapter is turned off, all connections are lost.
+  /// Clear both sides and reset state immediately.
+  void _handleBluetoothOff() {
+    devices.item1.clearConnection();
+    devices.item2.clearConnection();
+    deviceInfo1 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
+    deviceInfo2 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
+    batteryInfo = Battery();
+    currentPressure = 0;
+    targetPressure = 0;
+    pumpStatus = 0;
+    selectedPreset = Presets.non;
+    scanResults = [];
+    update();
+  }
+
   Future<void> connect({
     required BluetoothDevice device,
     required DeviceSide deviceSide,
@@ -76,6 +102,14 @@ class BleController extends GetxController {
 
     // Notify listeners that connection state changed so dependent UIs can rebuild.
     update();
+  }
+
+  Future<void> disconnect(DeviceSide deviceSide) async {
+    if (deviceSide == DeviceSide.left) {
+      await devices.item1.disconnect();
+    } else {
+      await devices.item2.disconnect();
+    }
   }
 
   void splitData(String msg) {
@@ -117,9 +151,13 @@ class BleController extends GetxController {
     required DeviceSide deviceSide,
   }) async {
     if (deviceSide == DeviceSide.left) {
-      devices.item1.sendMessage(message);
+      if (devices.item1.isConnected) {
+        devices.item1.sendMessage(message);
+      }
     } else {
-      devices.item2.sendMessage(message);
+      if (devices.item2.isConnected) {
+        devices.item2.sendMessage(message);
+      }
     }
     devices.item1.messageStream.listen((msg) {
       print(msg);
@@ -158,16 +196,23 @@ class BleController extends GetxController {
     }
   }
 
+  /// True if [deviceSide] is connected and [device] is the connected device.
+  bool isDeviceConnected(DeviceSide deviceSide, BluetoothDevice device) {
+    if (!isConnected(deviceSide: deviceSide)) return false;
+    final id = device.remoteId.str;
+    if (deviceSide == DeviceSide.left) {
+      return devices.item1.isConnected && deviceInfo1.remoteId.str == id;
+    } else {
+      return devices.item2.isConnected && deviceInfo2.remoteId.str == id;
+    }
+  }
+
   void _handleDisconnected(DeviceSide side) {
     // Clear device info for the disconnected side
     if (side == DeviceSide.left) {
-      deviceInfo1 = BluetoothDevice(
-        remoteId: const DeviceIdentifier('str'),
-      );
+      deviceInfo1 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
     } else {
-      deviceInfo2 = BluetoothDevice(
-        remoteId: const DeviceIdentifier('str'),
-      );
+      deviceInfo2 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
     }
 
     // If both sides are now disconnected, reset shared state
@@ -188,6 +233,16 @@ class BleController extends GetxController {
     required DeviceSide deviceSide,
     required Presets preset,
   }) async {
+    if (deviceSide == DeviceSide.left) {
+      if (!devices.item1.isConnected) {
+        return;
+      }
+    }
+    if (deviceSide == DeviceSide.right) {
+      if (!devices.item2.isConnected) {
+        return;
+      }
+    }
     selectedPreset = preset;
     int value = 0;
     if (preset == Presets.sit) {

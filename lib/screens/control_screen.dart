@@ -124,6 +124,7 @@ class _ControlScreenState extends State<ControlScreen> {
                             isSelected:
                                 _bleController.selectedPreset == Presets.sit,
                             onPress: () {
+                             
                               _bleController.ApplyPreset(
                                 deviceSide: _sideIndex == 0
                                     ? DeviceSide.left

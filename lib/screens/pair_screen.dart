@@ -130,220 +130,242 @@ class _PairScreenState extends State<PairScreen> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      body: SingleChildScrollView(
-        child: Container(
-          decoration: const BoxDecoration(
-            gradient: LinearGradient(
-              begin: Alignment.topCenter,
-              end: Alignment.bottomCenter,
-              colors: [Color(0xFF1E293B), AppColors.background],
-            ),
-          ),
-          child: SafeArea(
-            child: Padding(
-              padding: const EdgeInsets.symmetric(horizontal: 24),
-              child: Column(
-                crossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  const SizedBox(height: 24),
-                  const Text(
-                    'Devices',
-                    style: TextStyle(
-                      fontSize: 30,
-                      fontWeight: FontWeight.bold,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 20),
-
-                  Row(
+    return GetBuilder<BleController>(
+      init: _bleController,
+      builder: (_) {
+        return Scaffold(
+          body: SingleChildScrollView(
+            child: Container(
+              decoration: const BoxDecoration(
+                gradient: LinearGradient(
+                  begin: Alignment.topCenter,
+                  end: Alignment.bottomCenter,
+                  colors: [Color(0xFF1E293B), AppColors.background],
+                ),
+              ),
+              child: SafeArea(
+                child: Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 24),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
-                      Expanded(
-                        child: _DeviceCard(
-                          label: 'Left',
-                          isSelected: _selectedIndex == 0,
-                          onTap: () => _onSideSelected(0),
-                          imageUri: _selectedIndex == 0
-                              ? "assets/images/left_white.svg"
-                              : "assets/images/left_grey.svg",
+                      const SizedBox(height: 24),
+                      const Text(
+                        'Devices',
+                        style: TextStyle(
+                          fontSize: 30,
+                          fontWeight: FontWeight.bold,
+                          color: AppColors.textPrimary,
                         ),
                       ),
-                      const SizedBox(width: 16),
-                      Expanded(
-                        child: _DeviceCard(
-                          label: 'Right',
-                          isSelected: _selectedIndex == 1,
-                          onTap: () => _onSideSelected(1),
-                          imageUri: _selectedIndex == 1
-                              ? "assets/images/right_white.svg"
-                              : "assets/images/right_grey.svg",
-                        ),
-                      ),
-                    ],
-                  ),
-                  const SizedBox(height: 36),
-                  const Text(
-                    'Add New Device',
-                    style: TextStyle(
-                      fontSize: 25,
-                      fontWeight: FontWeight.w600,
-                      color: AppColors.textPrimary,
-                    ),
-                  ),
-                  const SizedBox(height: 12),
-                  Builder(
-                    builder: (context) {
-                      final side = _selectedIndex == 0
-                          ? DeviceSide.left
-                          : DeviceSide.right;
-                      final sideConnected = _bleController.isConnected(
-                        deviceSide: side,
-                      );
+                      const SizedBox(height: 20),
 
-                      if (sideConnected) {
-                        return _DeviceListTile(
-                          deviceId: _bleController
-                              .getDeviceName(
-                                _selectedIndex == 0
-                                    ? DeviceSide.left
-                                    : DeviceSide.right,
-                              )
-                              .replaceFirst('PUCK_', ''),
-                          state:
-                              _bleController.isConnected(
-                                deviceSide: _selectedIndex == 0
-                                    ? DeviceSide.left
-                                    : DeviceSide.right,
-                              )
-                              ? _ConnectState.connected
-                              : _ConnectState.idle,
-                          onConnect: () {},
-                        );
-                        // return Padding(
-                        //   padding: const EdgeInsets.only(top: 8.0),
-                        //   child: Row(
-                        //     children: [
-                        //       Icon(
-                        //         Icons.check_circle,
-                        //         color: AppColors.success,
-                        //         size: 20,
-                        //       ),
-                        //       SizedBox(width: 8),
-                        //       Text(
-                        //         'Device connected',
-                        //         style: TextStyle(
-                        //           fontSize: 13,
-                        //           color: AppColors.textPrimary,
-                        //         ),
-                        //       ),
-
-                        //     ],
-                        //   ),
-                        // );
-                      }
-
-                      if (!_isScanning) {
-                        return Column(
-                          crossAxisAlignment: CrossAxisAlignment.start,
-                          children: [
-                            const Text(
-                              "To get your new device set up, select it from the section above and then hit the 'Scan' button located below.",
-                              style: TextStyle(
-                                fontSize: 12,
-                                fontWeight: FontWeight.w400,
-                                height: 1.5,
-                                color: AppColors.textMuted,
-                              ),
+                      Row(
+                        children: [
+                          Expanded(
+                            child: _DeviceCard(
+                              label: 'Left',
+                              isSelected: _selectedIndex == 0,
+                              onTap: () => _onSideSelected(0),
+                              imageUri: _selectedIndex == 0
+                                  ? "assets/images/left_white.svg"
+                                  : "assets/images/left_grey.svg",
+                              deviceName: _bleController
+                                  .getDeviceName(DeviceSide.left)
+                                  .replaceFirst('PUCK_', ''),
+                              onDisconnect: () {
+                                _bleController.disconnect(DeviceSide.left);
+                                setState(() {
+                                  _isScanning = false;
+                                });
+                              },
                             ),
-                            const SizedBox(height: 28),
-                            Center(
-                              child: SizedBox(
-                                width: 170,
-                                child: FilledButton.icon(
-                                  onPressed: () async {
-                                    // Check if Bluetooth is on
-                                    BluetoothAdapterState state =
-                                        await FlutterBluePlus
-                                            .adapterState
-                                            .first;
+                          ),
+                          const SizedBox(width: 16),
+                          Expanded(
+                            child: _DeviceCard(
+                              label: 'Right',
+                              isSelected: _selectedIndex == 1,
+                              onTap: () => _onSideSelected(1),
+                              imageUri: _selectedIndex == 1
+                                  ? "assets/images/right_white.svg"
+                                  : "assets/images/right_grey.svg",
+                              deviceName: _bleController
+                                  .getDeviceName(DeviceSide.right)
+                                  .replaceFirst('PUCK_', ''),
+                              onDisconnect: () {
+                                _bleController.disconnect(DeviceSide.left);
+                                setState(() {
+                                  _isScanning = false;
+                                });
+                              },
+                            ),
+                          ),
+                        ],
+                      ),
+                      const SizedBox(height: 36),
+                      const Text(
+                        'Add New Device',
+                        style: TextStyle(
+                          fontSize: 25,
+                          fontWeight: FontWeight.w600,
+                          color: AppColors.textPrimary,
+                        ),
+                      ),
+                      const SizedBox(height: 12),
+                      Builder(
+                        builder: (context) {
+                          final side = _selectedIndex == 0
+                              ? DeviceSide.left
+                              : DeviceSide.right;
+                          // final sideConnected = _bleController.isConnected(
+                          //   deviceSide: side,
+                          // );
 
-                                    if (state != BluetoothAdapterState.on) {
-                                      // Android: programmatically turn on
-                                      await FlutterBluePlus.turnOn();
+                          // if (sideConnected) {
+                          //   return _DeviceListTile(
+                          //     deviceId: _bleController
+                          //         .getDeviceName(
+                          //           _selectedIndex == 0
+                          //               ? DeviceSide.left
+                          //               : DeviceSide.right,
+                          //         )
+                          //         .replaceFirst('PUCK_', ''),
+                          //     state:
+                          //         _bleController.isConnected(
+                          //           deviceSide: _selectedIndex == 0
+                          //               ? DeviceSide.left
+                          //               : DeviceSide.right,
+                          //         )
+                          //         ? _ConnectState.connected
+                          //         : _ConnectState.idle,
+                          //     onConnect: () {},
+                          //   );
 
-                                      // Wait until it's actually on
-                                      await FlutterBluePlus.adapterState
-                                          .where(
-                                            (s) =>
-                                                s == BluetoothAdapterState.on,
-                                          )
-                                          .first;
-                                    }
-                                    _startScan();
-                                  },
-                                  icon: SvgPicture.asset(
-                                    "assets/images/scanner.svg",
+                          // }
+
+                          if (!_isScanning) {
+                            return Column(
+                              crossAxisAlignment: CrossAxisAlignment.start,
+                              children: [
+                                const Text(
+                                  "To get your new device set up, select it from the section above and then hit the 'Scan' button located below.",
+                                  style: TextStyle(
+                                    fontSize: 12,
+                                    fontWeight: FontWeight.w400,
+                                    height: 1.5,
+                                    color: AppColors.textMuted,
                                   ),
-                                  label: const Text(
-                                    'Scan',
-                                    style: TextStyle(
-                                      fontSize: 14,
-                                      fontWeight: FontWeight.w400,
-                                    ),
-                                  ),
-                                  style: FilledButton.styleFrom(
-                                    backgroundColor: AppColors.primary,
-                                    foregroundColor: AppColors.textPrimary,
-                                    padding: const EdgeInsets.symmetric(
-                                      vertical: 14,
-                                      horizontal: 12,
-                                    ),
-                                    shape: RoundedRectangleBorder(
-                                      borderRadius: BorderRadius.circular(22),
+                                ),
+                                const SizedBox(height: 28),
+                                Center(
+                                  child: SizedBox(
+                                    width: 170,
+                                    child: FilledButton.icon(
+                                      onPressed: () async {
+                                        // Check if Bluetooth is on
+                                        BluetoothAdapterState state =
+                                            await FlutterBluePlus
+                                                .adapterState
+                                                .first;
+
+                                        if (state != BluetoothAdapterState.on) {
+                                          // Android: programmatically turn on
+                                          await FlutterBluePlus.turnOn();
+
+                                          // Wait until it's actually on
+                                          await FlutterBluePlus.adapterState
+                                              .where(
+                                                (s) =>
+                                                    s ==
+                                                    BluetoothAdapterState.on,
+                                              )
+                                              .first;
+                                        }
+                                        _startScan();
+                                      },
+                                      icon: SvgPicture.asset(
+                                        "assets/images/scanner.svg",
+                                      ),
+                                      label: const Text(
+                                        'Scan',
+                                        style: TextStyle(
+                                          fontSize: 14,
+                                          fontWeight: FontWeight.w400,
+                                        ),
+                                      ),
+                                      style: FilledButton.styleFrom(
+                                        backgroundColor: AppColors.primary,
+                                        foregroundColor: AppColors.textPrimary,
+                                        padding: const EdgeInsets.symmetric(
+                                          vertical: 14,
+                                          horizontal: 12,
+                                        ),
+                                        shape: RoundedRectangleBorder(
+                                          borderRadius: BorderRadius.circular(
+                                            22,
+                                          ),
+                                        ),
+                                      ),
                                     ),
                                   ),
                                 ),
-                              ),
-                            ),
-                          ],
-                        );
-                      }
-
-                      return _ScanSection(
-                        devices: _scanResults,
-                        connectStates: _connectStates,
-                        onConnect: (int index) async {
-                          setState(() {
-                            if (index < _connectStates.length) {
-                              _connectStates[index] = _ConnectState.connecting;
-                            }
-                          });
-                          try {
-                            await _connect(_scanResults[index].device);
-                            setState(() {
-                              if (index < _connectStates.length) {
-                                _connectStates[index] = _ConnectState.connected;
-                                _isConnected = true;
-                              }
-                            });
-                          } catch (_) {
-                            setState(() {
-                              if (index < _connectStates.length) {
-                                _connectStates[index] = _ConnectState.idle;
-                              }
-                            });
+                              ],
+                            );
                           }
+                          if ((_selectedIndex == 0 &&
+                                  !_bleController.isConnected(
+                                    deviceSide: DeviceSide.left,
+                                  ) ||
+                              _selectedIndex == 1 &&
+                                  !_bleController.isConnected(
+                                    deviceSide: DeviceSide.right,
+                                  ))) {
+                            return _ScanSection(
+                              devices: _scanResults,
+                              connectStates: _connectStates,
+                              bleController: _bleController,
+                              deviceSide: _selectedIndex == 0
+                                  ? DeviceSide.left
+                                  : DeviceSide.right,
+                              onConnect: (int index) async {
+                                setState(() {
+                                  if (index < _connectStates.length) {
+                                    _connectStates[index] =
+                                        _ConnectState.connecting;
+                                  }
+                                });
+                                try {
+                                  await _connect(_scanResults[index].device);
+                                  setState(() {
+                                    if (index < _connectStates.length) {
+                                      _connectStates[index] =
+                                          _ConnectState.connected;
+                                      _isConnected = true;
+                                    }
+                                  });
+                                } catch (_) {
+                                  setState(() {
+                                    if (index < _connectStates.length) {
+                                      _connectStates[index] =
+                                          _ConnectState.idle;
+                                    }
+                                  });
+                                }
+                              },
+                            );
+                          }
+                          return Container();
                         },
-                      );
-                    },
+                      ),
+                    ],
                   ),
-                ],
+                ),
               ),
             ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
@@ -367,12 +389,16 @@ class _DeviceCard extends StatelessWidget {
     required this.isSelected,
     required this.onTap,
     required this.imageUri,
+    required this.deviceName,
+    required this.onDisconnect,
   });
 
   final String label;
   final bool isSelected;
   final VoidCallback onTap;
   final String imageUri;
+  final String deviceName;
+  final VoidCallback onDisconnect;
 
   @override
   Widget build(BuildContext context) {
@@ -435,9 +461,40 @@ class _DeviceCard extends StatelessWidget {
                           : AppColors.textMuted,
                     ),
                   ),
+                  Text(
+                    deviceName,
+                    style: TextStyle(
+                      fontSize: 15,
+                      fontWeight: FontWeight.w400,
+                      color: isSelected
+                          ? AppColors.textPrimary
+                          : AppColors.textMuted,
+                    ),
+                  ),
+                  if (deviceName != "")
+                    GestureDetector(
+                      onTap: onDisconnect,
+                      child: Container(
+                        decoration: BoxDecoration(
+                          border: Border.all(color: AppColors.gaugeTrackMin),
+                          borderRadius: BorderRadius.circular(6),
+                        ),
+                        padding: EdgeInsets.all(6),
+                        child: Text(
+                          "Disconnect",
+                          style: TextStyle(
+                            fontSize: 10,
+                            fontWeight: FontWeight.w400,
+                            color: isSelected
+                                ? AppColors.textPrimary
+                                : AppColors.textMuted,
+                          ),
+                        ),
+                      ),
+                    ),
                 ],
               ),
-              Expanded(child: Container()),
+              // Expanded(child: Container()),
             ],
           ),
         ),
@@ -513,17 +570,19 @@ class _ScanSection extends StatelessWidget {
   const _ScanSection({
     required this.devices,
     required this.connectStates,
+    required this.bleController,
+    required this.deviceSide,
     required this.onConnect,
   });
 
   final List<ScanResult> devices;
   final List<_ConnectState> connectStates;
+  final BleController bleController;
+  final DeviceSide deviceSide;
   final Future<void> Function(int index) onConnect;
 
   @override
   Widget build(BuildContext context) {
-    // final devices = ['1A5F4H', 'KAJF82', 'KAJF83'];
-
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -534,8 +593,6 @@ class _ScanSection extends StatelessWidget {
             height: 250,
           ),
         ),
-
-        // const SizedBox(height: 28),
         const Text(
           'Available devices',
           style: TextStyle(
@@ -547,9 +604,15 @@ class _ScanSection extends StatelessWidget {
         const SizedBox(height: 12),
         ...List.generate(devices.length, (index) {
           final device = devices[index];
-          final state = index < connectStates.length
+          final localState = index < connectStates.length
               ? connectStates[index]
               : _ConnectState.idle;
+          // Show connected only if device is actually connected; otherwise
+          // use local state (connecting/idle) so we don't show stale tick after disconnect.
+          final state =
+              bleController.isDeviceConnected(deviceSide, device.device)
+              ? _ConnectState.connected
+              : localState;
           return Padding(
             padding: const EdgeInsets.only(bottom: 10),
             child: _DeviceListTile(

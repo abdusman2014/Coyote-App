@@ -61,6 +61,14 @@ class BleManager {
     _device = null;
   }
 
+  /// Clears connection state without disconnecting or invoking onDisconnected.
+  /// Use when Bluetooth adapter is turned off and all connections are lost.
+  void clearConnection() {
+    _device = null;
+    _txChar = null;
+    _rxChar = null;
+  }
+
   // ─── Discover Services & Characteristics ─────────────────────────────────
 
   Future<void> _discoverServices() async {
