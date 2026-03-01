@@ -243,12 +243,7 @@ class _PairScreenState extends State<PairScreen> {
                         // );
                       }
 
-                      if (!_isScanning ||
-                          _bleController.isConnected(
-                            deviceSide: _selectedIndex == 0
-                                ? DeviceSide.left
-                                : DeviceSide.right,
-                          )) {
+                      if (!_isScanning) {
                         return Column(
                           crossAxisAlignment: CrossAxisAlignment.start,
                           children: [
@@ -266,7 +261,27 @@ class _PairScreenState extends State<PairScreen> {
                               child: SizedBox(
                                 width: 170,
                                 child: FilledButton.icon(
-                                  onPressed: _startScan,
+                                  onPressed: () async {
+                                    // Check if Bluetooth is on
+                                    BluetoothAdapterState state =
+                                        await FlutterBluePlus
+                                            .adapterState
+                                            .first;
+
+                                    if (state != BluetoothAdapterState.on) {
+                                      // Android: programmatically turn on
+                                      await FlutterBluePlus.turnOn();
+
+                                      // Wait until it's actually on
+                                      await FlutterBluePlus.adapterState
+                                          .where(
+                                            (s) =>
+                                                s == BluetoothAdapterState.on,
+                                          )
+                                          .first;
+                                    }
+                                    _startScan();
+                                  },
                                   icon: SvgPicture.asset(
                                     "assets/images/scanner.svg",
                                   ),

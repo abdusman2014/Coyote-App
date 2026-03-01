@@ -26,7 +26,7 @@ class Battery {
 }
 
 class BleController extends GetxController {
-  Tuple2<BleManager, BleManager> devices = Tuple2(BleManager(), BleManager());
+  late final Tuple2<BleManager, BleManager> devices;
   BluetoothDevice deviceInfo1 = BluetoothDevice(
     remoteId: DeviceIdentifier("str"),
   );
@@ -40,6 +40,13 @@ class BleController extends GetxController {
   Map<String, int> preSets = {"sit": 8, "walk": 10, "run": 20};
   Presets selectedPreset = Presets.non;
   List<ScanResult> scanResults = [];
+
+  BleController() {
+    devices = Tuple2(
+      BleManager(onDisconnected: () => _handleDisconnected(DeviceSide.left)),
+      BleManager(onDisconnected: () => _handleDisconnected(DeviceSide.right)),
+    );
+  }
 
   Future<void> connect({
     required BluetoothDevice device,
@@ -149,6 +156,32 @@ class BleController extends GetxController {
     } else {
       return devices.item2.isConnected;
     }
+  }
+
+  void _handleDisconnected(DeviceSide side) {
+    // Clear device info for the disconnected side
+    if (side == DeviceSide.left) {
+      deviceInfo1 = BluetoothDevice(
+        remoteId: const DeviceIdentifier('str'),
+      );
+    } else {
+      deviceInfo2 = BluetoothDevice(
+        remoteId: const DeviceIdentifier('str'),
+      );
+    }
+
+    // If both sides are now disconnected, reset shared state
+    if (!devices.item1.isConnected && !devices.item2.isConnected) {
+      batteryInfo = Battery();
+      currentPressure = 0;
+      targetPressure = 0;
+      pumpStatus = 0;
+      selectedPreset = Presets.non;
+      scanResults = [];
+    }
+
+    // Notify UI to rebuild (ControlScreen, PairScreen, etc.)
+    update();
   }
 
   void ApplyPreset({

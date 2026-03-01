@@ -4,6 +4,8 @@ import 'dart:convert';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 
 class BleManager {
+  BleManager({this.onDisconnected});
+
   static const String NUS_SERVICE_UUID = "6E400001-B5A3-F393-E0A9-E50E24DCCA9E";
   static const String NUS_TX_CHAR_UUID = "6E400003-B5A3-F393-E0A9-E50E24DCCA9E";
   static const String NUS_RX_CHAR_UUID = "6E400002-B5A3-F393-E0A9-E50E24DCCA9E";
@@ -17,6 +19,10 @@ class BleManager {
 
   Stream<String> get messageStream => _messageController.stream;
   bool get isConnected => _device != null;
+
+  /// Optional callback invoked when the underlying device disconnects,
+  /// e.g. Bluetooth turned off or device powered down.
+  final void Function()? onDisconnected;
 
   // ─── Scan ────────────────────────────────────────────────────────────────
 
@@ -43,6 +49,7 @@ class BleManager {
         _device = null;
         _txChar = null;
         _rxChar = null;
+        onDisconnected?.call();
       }
     });
 
