@@ -1,4 +1,6 @@
+import 'package:coyote_app/controller/ble_controller.dart';
 import 'package:flutter/material.dart';
+import 'package:get/get.dart';
 import '../theme/app_colors.dart';
 import '../components/components.dart';
 import 'control_screen.dart';
@@ -39,23 +41,39 @@ class _MainShellState extends State<MainShell> {
 
   @override
   Widget build(BuildContext context) {
-    return Scaffold(
-      backgroundColor: AppColors.navBarBackground,
-      body: Column(
-        children: [
-          Expanded(
-            child: IndexedStack(
-              index: _currentIndex,
-              children: _pages,
+    return GetBuilder<BleController>(
+      builder: (ble) {
+        final isLoading = ble.isReconnecting;
+        return Stack(
+          children: [
+            Scaffold(
+              backgroundColor: AppColors.navBarBackground,
+              body: Column(
+                children: [
+                  Expanded(
+                    child: IndexedStack(
+                      index: _currentIndex,
+                      children: _pages,
+                    ),
+                  ),
+                  CoyoteNavBar(
+                    items: _navItems,
+                    currentIndex: _currentIndex,
+                    onTap: (i) => setState(() => _currentIndex = i),
+                  ),
+                ],
+              ),
             ),
-          ),
-          CoyoteNavBar(
-            items: _navItems,
-            currentIndex: _currentIndex,
-            onTap: (i) => setState(() => _currentIndex = i),
-          ),
-        ],
-      ),
+            if (isLoading)
+              Container(
+                color: Colors.black.withOpacity(0.5),
+                child: const Center(
+                  child: CircularProgressIndicator(),
+                ),
+              ),
+          ],
+        );
+      },
     );
   }
 }

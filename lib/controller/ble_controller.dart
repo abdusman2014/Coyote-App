@@ -30,6 +30,7 @@ class BleController extends GetxController {
   late final Tuple2<BleManager, BleManager> devices;
   final GetStorage _box = GetStorage();
   bool _hasTriedReconnect = false;
+  bool isReconnecting = false;
   BluetoothDevice deviceInfo1 = BluetoothDevice(
     remoteId: DeviceIdentifier("str"),
   );
@@ -82,6 +83,8 @@ class BleController extends GetxController {
     pumpStatus = 0;
     selectedPreset = Presets.non;
     scanResults = [];
+    _hasTriedReconnect = false;
+    isReconnecting = false;
     _saveState();
     update();
   }
@@ -93,25 +96,32 @@ class BleController extends GetxController {
     final state = await FlutterBluePlus.adapterState.first;
     if (state != BluetoothAdapterState.on) return;
 
-    _hasTriedReconnect = true;
-
     final leftId = deviceInfo1.remoteId.str;
     final rightId = deviceInfo2.remoteId.str;
+
+    // Nothing to reconnect to
+    if (leftId == 'str' && rightId == 'str') {
+      _hasTriedReconnect = true;
+      return;
+    }
+
+    _hasTriedReconnect = true;
+    isReconnecting = true;
+    update();
 
     try {
       if (leftId != 'str' && !devices.item1.isConnected) {
         await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
       }
-    } catch (_) {
-      // Ignore auto-reconnect errors; user can connect manually.
-    }
 
-    try {
       if (rightId != 'str' && !devices.item2.isConnected) {
         await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
       }
     } catch (_) {
       // Ignore auto-reconnect errors; user can connect manually.
+    } finally {
+      isReconnecting = false;
+      update();
     }
   }
 
