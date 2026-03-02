@@ -70,7 +70,7 @@ class _ControlScreenState extends State<ControlScreen> {
 
                     Expanded(
                       child:
-                          _bleController.isConnected(
+                          !_bleController.isConnected(
                             deviceSide: _sideIndex == 0
                                 ? DeviceSide.left
                                 : DeviceSide.right,
