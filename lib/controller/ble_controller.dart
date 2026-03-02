@@ -287,13 +287,13 @@ class BleController extends GetxController {
   }
 
   void _handleDisconnected(DeviceSide side) {
-    // If both sides are now disconnected, reset shared state
+    // If both sides are now disconnected, reset only volatile state.
+    // Keep targetPressure & selectedPreset so user configuration persists
+    // across device power cycles and auto-reconnect.
     if (!devices.item1.isConnected && !devices.item2.isConnected) {
       batteryInfo = Battery();
       currentPressure = 0;
-      targetPressure = 0;
       pumpStatus = 0;
-      selectedPreset = Presets.non;
       scanResults = [];
     }
 
