@@ -192,7 +192,7 @@ class _PairScreenState extends State<PairScreen> {
                               deviceName: _bleController.deviceInfoName2
                                   .replaceFirst('PUCK_', ''),
                               onDisconnect: () {
-                                _bleController.disconnect(DeviceSide.left);
+                                _bleController.disconnect(DeviceSide.right);
                                 setState(() {
                                   _isScanning = false;
                                 });

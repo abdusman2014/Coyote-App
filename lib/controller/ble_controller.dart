@@ -6,10 +6,10 @@ import 'package:get_storage/get_storage.dart';
 import 'package:tuple/tuple.dart';
 
 class Battery {
-  int chargingStatus = 0;
-  double batteryPercentage = 0;
-  double batteryVoltage = 0;
-  int currentCycle = 0;
+  int chargingStatus = 10;
+  double batteryPercentage = 10;
+  double batteryVoltage = 10;
+  double currentCycle = 10;
 
   Battery.fromString(String data) {
     List<String> parts = data.split(':');
@@ -17,13 +17,13 @@ class Battery {
     chargingStatus = int.parse(parts[1]);
     batteryPercentage = double.parse(parts[2]);
     batteryVoltage = double.parse(parts[3]);
-    currentCycle = int.parse(parts[4]);
+    currentCycle = double.parse(parts[4]);
   }
   Battery() {
-    chargingStatus = 0;
-    batteryPercentage = 0;
-    batteryVoltage = 0;
-    currentCycle = 0;
+    chargingStatus = 20;
+    batteryPercentage = 20;
+    batteryVoltage = 20;
+    currentCycle = 20;
   }
 }
 
@@ -48,6 +48,8 @@ class BleController extends GetxController {
   Map<String, int> preSets = {"sit": 8, "walk": 10, "run": 20};
   Presets selectedPreset = Presets.non;
   List<ScanResult> scanResults = [];
+
+  String batteryInfoTest = "";
 
   BleController() {
     devices = Tuple2(
@@ -140,6 +142,7 @@ class BleController extends GetxController {
 
         devices.item1.messageStream.listen((msg) {
           print(msg);
+
           splitData(msg);
         });
         sendInitalMessages(DeviceSide.left);
@@ -182,8 +185,12 @@ class BleController extends GetxController {
 
   void splitData(String msg) {
     // Battery Info
+    
     if (msg.isNotEmpty && msg[0] == '7') {
       batteryInfo = Battery.fromString(msg);
+ 
+      batteryInfoTest = msg;
+
       print(batteryInfo);
     } else if (msg.isNotEmpty && msg[0] == '4') {
       List<String> parts = msg.split(':');
@@ -361,7 +368,7 @@ class BleController extends GetxController {
       batteryInfo.chargingStatus = chargingStatus;
       final dynamic percent = _box.read('batteryPercentage');
       final dynamic voltage = _box.read('batteryVoltage');
-      final int? cycle = _box.read<int>('batteryCurrentCycle');
+      final double? cycle = _box.read<double>('batteryCurrentCycle');
       batteryInfo.batteryPercentage = percent is num
           ? percent.toDouble()
           : batteryInfo.batteryPercentage;

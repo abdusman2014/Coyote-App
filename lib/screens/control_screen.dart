@@ -70,7 +70,7 @@ class _ControlScreenState extends State<ControlScreen> {
 
                     Expanded(
                       child:
-                          !_bleController.isConnected(
+                          _bleController.isConnected(
                             deviceSide: _sideIndex == 0
                                 ? DeviceSide.left
                                 : DeviceSide.right,
@@ -388,6 +388,7 @@ class _ControlScreenState extends State<ControlScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
+              // Text(_bleController.batteryInfoTest),
               Text(
                 'chargingStatus: ${_bleController.batteryInfo.chargingStatus}',
               ),

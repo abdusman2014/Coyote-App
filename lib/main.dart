@@ -17,7 +17,7 @@ class CoyoteApp extends StatelessWidget {
 
   @override
   Widget build(BuildContext context) {
-    return MaterialApp(
+    return GetMaterialApp(
       title: 'Coyote',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
