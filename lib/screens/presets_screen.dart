@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_svg/svg.dart';
 import 'package:get/get.dart';
 import '../theme/app_colors.dart';
+import '../components/components.dart';
 
 /// Presets screen showing Sit / Walk / Run rows and language selector.
 class PresetsScreen extends StatefulWidget {
@@ -31,14 +32,7 @@ class _PresetsScreenState extends State<PresetsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body: Container(
-        decoration: const BoxDecoration(
-          gradient: LinearGradient(
-            begin: Alignment.topCenter,
-            end: Alignment.bottomCenter,
-            colors: [Color(0xFF1E293B), AppColors.background],
-          ),
-        ),
+      body:  CoyoteBackground(
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),

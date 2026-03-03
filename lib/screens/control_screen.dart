@@ -29,21 +29,14 @@ class _ControlScreenState extends State<ControlScreen> {
       init: _bleController,
       builder: (_) {
         return Scaffold(
-          body: Container(
-            decoration: const BoxDecoration(
-              gradient: LinearGradient(
-                begin: Alignment.topCenter,
-                end: Alignment.bottomCenter,
-                colors: [Color(0xFF1E293B), AppColors.background],
-              ),
-            ),
+          body:  CoyoteBackground(
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                    const SizedBox(height: 20),
+                     SizedBox(height: 20),
                     _buildHeader(),
                     const SizedBox(height: 28),
                     SegmentedControl<String>(

@@ -3,3 +3,4 @@ export 'circular_gauge.dart';
 export 'primary_action_button.dart';
 export 'segmented_control.dart';
 export 'status_card.dart';
+export 'coyote_background.dart';

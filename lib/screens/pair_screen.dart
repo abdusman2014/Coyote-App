@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:math' as math;
 import 'package:coyote_app/controller/ble_controller.dart';
 import 'package:coyote_app/services/ble_manager.dart';
@@ -8,6 +9,7 @@ import 'package:get/get.dart';
 import 'package:permission_handler/permission_handler.dart';
 import '../theme/app_colors.dart';
 import 'package:lottie/lottie.dart';
+import '../components/components.dart';
 
 /// Pairing screen showing available devices and "Add New Device" section.
 class PairScreen extends StatefulWidget {
@@ -28,6 +30,7 @@ class _PairScreenState extends State<PairScreen> {
   List<ScanResult> _scanResults = [];
   bool _isConnected = false;
   List<_ConnectState> _connectStates = [];
+  StreamSubscription<List<ScanResult>>? _scanSubscription;
 
   @override
   void initState() {
@@ -47,52 +50,36 @@ class _PairScreenState extends State<PairScreen> {
   }
 
   Future<void> _startScan() async {
+    // Cancel any existing scan subscription before starting a new one
+    _scanSubscription?.cancel();
+    _bleController.devices.item1.stopScan();
+
     setState(() {
       _scanResults = [];
       _isScanning = true;
       _connectStates = [];
     });
-    List<ScanResult> result = [];
-    _bleController.devices.item1.startScan().listen((results) {
-      // scanResults = results;
-      result.addAll(
-        results.where((result) {
-          final name = result.device.advName;
-          return name.startsWith('PUCK_');
-        }).toList(),
-      );
+    _scanSubscription = _bleController.devices.item1.startScan().listen((
+      results,
+    ) {
+      // Filter only PUCK_ devices and de-duplicate by remoteId so that
+      // the same physical device is only shown once.
+      final Map<String, ScanResult> uniqueById = {};
+      for (final result in results) {
+        final name = result.device.advName;
+        if (!name.startsWith('PUCK_')) continue;
+        uniqueById[result.device.remoteId.str] = result;
+      }
+      final filteredResults = uniqueById.values.toList();
 
-      // result = results.where((result) {
-      //   final name = result.device.advName;
-      //   return name.startsWith('PUCK_');
-      // }).toList();
-      print("scan");
-      print(result);
       setState(() {
-        _scanResults = result;
+        _scanResults = filteredResults;
         _connectStates = List<_ConnectState>.filled(
-          result.length,
+          _scanResults.length,
           _ConnectState.idle,
         );
-        // _isScanning = false;
       });
-      // scanResults = results;
-      // update();
     });
-    // await Future.delayed(Duration(seconds: 5));
-    print(result);
-
-    // setState(() {
-    //   _scanResults = result;
-    //   _connectStates = List<_ConnectState>.filled(
-    //     result.length,
-    //     _ConnectState.idle,
-    //   );
-    //   // _isScanning = false;
-    // });
-    // Future.delayed(const Duration(seconds: 10), () {
-    //   setState(() => _isScanning = false);
-    // });
   }
 
   Future<void> _connect(BluetoothDevice device) async {
@@ -103,6 +90,11 @@ class _PairScreenState extends State<PairScreen> {
   }
 
   void _onSideSelected(int index) {
+    // Stop any in-progress scan when switching sides to avoid
+    // duplicate listeners and stale results.
+    _scanSubscription?.cancel();
+    _bleController.devices.item1.stopScan();
+
     setState(() {
       _selectedIndex = index;
       _scanResults = [];
@@ -129,235 +121,230 @@ class _PairScreenState extends State<PairScreen> {
   // }
 
   @override
+  void dispose() {
+    _scanSubscription?.cancel();
+    _bleController.devices.item1.stopScan();
+    _inputController.dispose();
+    super.dispose();
+  }
+
+  @override
   Widget build(BuildContext context) {
     return GetBuilder<BleController>(
       init: _bleController,
       builder: (_) {
         return Scaffold(
-          body: SingleChildScrollView(
-            child: Container(
-              decoration: const BoxDecoration(
-                gradient: LinearGradient(
-                  begin: Alignment.topCenter,
-                  end: Alignment.bottomCenter,
-                  colors: [Color(0xFF1E293B), AppColors.background],
-                ),
-              ),
-              child: SafeArea(
-                child: Padding(
-                  padding: const EdgeInsets.symmetric(horizontal: 24),
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      const SizedBox(height: 24),
-                      const Text(
-                        'Devices',
-                        style: TextStyle(
-                          fontSize: 30,
-                          fontWeight: FontWeight.bold,
-                          color: AppColors.textPrimary,
-                        ),
+          body:  CoyoteBackground(
+            child: SafeArea(
+              child: Padding(
+                padding: const EdgeInsets.symmetric(horizontal: 24),
+                child: Column(
+                  crossAxisAlignment: CrossAxisAlignment.start,
+                  children: [
+                    const SizedBox(height: 24),
+                    const Text(
+                      'Devices',
+                      style: TextStyle(
+                        fontSize: 30,
+                        fontWeight: FontWeight.bold,
+                        color: AppColors.textPrimary,
                       ),
-                      const SizedBox(height: 20),
+                    ),
+                    const SizedBox(height: 20),
 
-                      Row(
-                        children: [
-                          Expanded(
-                            child: _DeviceCard(
-                              label: 'Left',
-                              isSelected: _selectedIndex == 0,
-                              onTap: () => _onSideSelected(0),
-                              imageUri: _selectedIndex == 0
-                                  ? "assets/images/left_white.svg"
-                                  : "assets/images/left_grey.svg",
-                              deviceName: _bleController.deviceInfoName1
-                                  .replaceFirst('PUCK_', ''),
-                              onDisconnect: () {
-                                _bleController.disconnect(DeviceSide.left);
-                                setState(() {
-                                  _isScanning = false;
-                                });
-                              },
-                            ),
+                    Row(
+                      children: [
+                        Expanded(
+                          child: _DeviceCard(
+                            label: 'Left',
+                            isSelected: _selectedIndex == 0,
+                            onTap: () => _onSideSelected(0),
+                            imageUri: _selectedIndex == 0
+                                ? "assets/images/left_white.svg"
+                                : "assets/images/left_grey.svg",
+                            deviceName: _bleController.deviceInfoName1
+                                .replaceFirst('PUCK_', ''),
+                            onDisconnect: () {
+                              _bleController.disconnect(DeviceSide.left);
+                              setState(() {
+                                _isScanning = false;
+                              });
+                            },
                           ),
-                          const SizedBox(width: 16),
-                          Expanded(
-                            child: _DeviceCard(
-                              label: 'Right',
-                              isSelected: _selectedIndex == 1,
-                              onTap: () => _onSideSelected(1),
-                              imageUri: _selectedIndex == 1
-                                  ? "assets/images/right_white.svg"
-                                  : "assets/images/right_grey.svg",
-                              deviceName: _bleController.deviceInfoName2
-                                  .replaceFirst('PUCK_', ''),
-                              onDisconnect: () {
-                                _bleController.disconnect(DeviceSide.right);
-                                setState(() {
-                                  _isScanning = false;
-                                });
-                              },
-                            ),
-                          ),
-                        ],
-                      ),
-                      const SizedBox(height: 36),
-                      const Text(
-                        'Add New Device',
-                        style: TextStyle(
-                          fontSize: 25,
-                          fontWeight: FontWeight.w600,
-                          color: AppColors.textPrimary,
                         ),
+                        const SizedBox(width: 16),
+                        Expanded(
+                          child: _DeviceCard(
+                            label: 'Right',
+                            isSelected: _selectedIndex == 1,
+                            onTap: () => _onSideSelected(1),
+                            imageUri: _selectedIndex == 1
+                                ? "assets/images/right_white.svg"
+                                : "assets/images/right_grey.svg",
+                            deviceName: _bleController.deviceInfoName2
+                                .replaceFirst('PUCK_', ''),
+                            onDisconnect: () {
+                              _bleController.disconnect(DeviceSide.right);
+                              setState(() {
+                                _isScanning = false;
+                              });
+                            },
+                          ),
+                        ),
+                      ],
+                    ),
+                    const SizedBox(height: 36),
+                    const Text(
+                      'Add New Device',
+                      style: TextStyle(
+                        fontSize: 25,
+                        fontWeight: FontWeight.w600,
+                        color: AppColors.textPrimary,
                       ),
-                      const SizedBox(height: 12),
-                      Builder(
-                        builder: (context) {
-                          final side = _selectedIndex == 0
-                              ? DeviceSide.left
-                              : DeviceSide.right;
-                          // final sideConnected = _bleController.isConnected(
-                          //   deviceSide: side,
-                          // );
+                    ),
+                    const SizedBox(height: 12),
+                    Builder(
+                      builder: (context) {
+                        final side = _selectedIndex == 0
+                            ? DeviceSide.left
+                            : DeviceSide.right;
+                        // final sideConnected = _bleController.isConnected(
+                        //   deviceSide: side,
+                        // );
 
-                          // if (sideConnected) {
-                          //   return _DeviceListTile(
-                          //     deviceId: _bleController
-                          //         .getDeviceName(
-                          //           _selectedIndex == 0
-                          //               ? DeviceSide.left
-                          //               : DeviceSide.right,
-                          //         )
-                          //         .replaceFirst('PUCK_', ''),
-                          //     state:
-                          //         _bleController.isConnected(
-                          //           deviceSide: _selectedIndex == 0
-                          //               ? DeviceSide.left
-                          //               : DeviceSide.right,
-                          //         )
-                          //         ? _ConnectState.connected
-                          //         : _ConnectState.idle,
-                          //     onConnect: () {},
-                          //   );
+                        // if (sideConnected) {
+                        //   return _DeviceListTile(
+                        //     deviceId: _bleController
+                        //         .getDeviceName(
+                        //           _selectedIndex == 0
+                        //               ? DeviceSide.left
+                        //               : DeviceSide.right,
+                        //         )
+                        //         .replaceFirst('PUCK_', ''),
+                        //     state:
+                        //         _bleController.isConnected(
+                        //           deviceSide: _selectedIndex == 0
+                        //               ? DeviceSide.left
+                        //               : DeviceSide.right,
+                        //         )
+                        //         ? _ConnectState.connected
+                        //         : _ConnectState.idle,
+                        //     onConnect: () {},
+                        //   );
 
-                          // }
+                        // }
 
-                          if (!_isScanning) {
-                            return Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                const Text(
-                                  "To get your new device set up, select it from the section above and then hit the 'Scan' button located below.",
-                                  style: TextStyle(
-                                    fontSize: 12,
-                                    fontWeight: FontWeight.w400,
-                                    height: 1.5,
-                                    color: AppColors.textMuted,
-                                  ),
+                        if (!_isScanning) {
+                          return Column(
+                            crossAxisAlignment: CrossAxisAlignment.start,
+                            children: [
+                              const Text(
+                                "To get your new device set up, select it from the section above and then hit the 'Scan' button located below.",
+                                style: TextStyle(
+                                  fontSize: 12,
+                                  fontWeight: FontWeight.w400,
+                                  height: 1.5,
+                                  color: AppColors.textMuted,
                                 ),
-                                const SizedBox(height: 28),
-                                Center(
-                                  child: SizedBox(
-                                    width: 170,
-                                    child: FilledButton.icon(
-                                      onPressed: () async {
-                                        // Check if Bluetooth is on
-                                        BluetoothAdapterState state =
-                                            await FlutterBluePlus
-                                                .adapterState
-                                                .first;
-
-                                        if (state != BluetoothAdapterState.on) {
-                                          // Android: programmatically turn on
-                                          await FlutterBluePlus.turnOn();
-
-                                          // Wait until it's actually on
-                                          await FlutterBluePlus.adapterState
-                                              .where(
-                                                (s) =>
-                                                    s ==
-                                                    BluetoothAdapterState.on,
-                                              )
+                              ),
+                              const SizedBox(height: 28),
+                              Center(
+                                child: SizedBox(
+                                  width: 170,
+                                  child: FilledButton.icon(
+                                    onPressed: () async {
+                                      // Check if Bluetooth is on
+                                      BluetoothAdapterState state =
+                                          await FlutterBluePlus
+                                              .adapterState
                                               .first;
-                                        }
-                                        _startScan();
-                                      },
-                                      icon: SvgPicture.asset(
-                                        "assets/images/scanner.svg",
+
+                                      if (state != BluetoothAdapterState.on) {
+                                        // Android: programmatically turn on
+                                        await FlutterBluePlus.turnOn();
+
+                                        // Wait until it's actually on
+                                        await FlutterBluePlus.adapterState
+                                            .where(
+                                              (s) =>
+                                                  s == BluetoothAdapterState.on,
+                                            )
+                                            .first;
+                                      }
+                                      _startScan();
+                                    },
+                                    icon: SvgPicture.asset(
+                                      "assets/images/scanner.svg",
+                                    ),
+                                    label: const Text(
+                                      'Scan',
+                                      style: TextStyle(
+                                        fontSize: 14,
+                                        fontWeight: FontWeight.w400,
                                       ),
-                                      label: const Text(
-                                        'Scan',
-                                        style: TextStyle(
-                                          fontSize: 14,
-                                          fontWeight: FontWeight.w400,
-                                        ),
+                                    ),
+                                    style: FilledButton.styleFrom(
+                                      backgroundColor: AppColors.primary,
+                                      foregroundColor: AppColors.textPrimary,
+                                      padding: const EdgeInsets.symmetric(
+                                        vertical: 14,
+                                        horizontal: 12,
                                       ),
-                                      style: FilledButton.styleFrom(
-                                        backgroundColor: AppColors.primary,
-                                        foregroundColor: AppColors.textPrimary,
-                                        padding: const EdgeInsets.symmetric(
-                                          vertical: 14,
-                                          horizontal: 12,
-                                        ),
-                                        shape: RoundedRectangleBorder(
-                                          borderRadius: BorderRadius.circular(
-                                            22,
-                                          ),
-                                        ),
+                                      shape: RoundedRectangleBorder(
+                                        borderRadius: BorderRadius.circular(22),
                                       ),
                                     ),
                                   ),
                                 ),
-                              ],
-                            );
-                          }
-                          if ((_selectedIndex == 0 &&
-                                  !_bleController.isConnected(
-                                    deviceSide: DeviceSide.left,
-                                  ) ||
-                              _selectedIndex == 1 &&
-                                  !_bleController.isConnected(
-                                    deviceSide: DeviceSide.right,
-                                  ))) {
-                            return _ScanSection(
-                              devices: _scanResults,
-                              connectStates: _connectStates,
-                              bleController: _bleController,
-                              deviceSide: _selectedIndex == 0
-                                  ? DeviceSide.left
-                                  : DeviceSide.right,
-                              onConnect: (int index) async {
+                              ),
+                            ],
+                          );
+                        }
+                        if ((_selectedIndex == 0 &&
+                                !_bleController.isConnected(
+                                  deviceSide: DeviceSide.left,
+                                ) ||
+                            _selectedIndex == 1 &&
+                                !_bleController.isConnected(
+                                  deviceSide: DeviceSide.right,
+                                ))) {
+                          return _ScanSection(
+                            devices: _scanResults,
+                            connectStates: _connectStates,
+                            bleController: _bleController,
+                            deviceSide: _selectedIndex == 0
+                                ? DeviceSide.left
+                                : DeviceSide.right,
+                            onConnect: (int index) async {
+                              setState(() {
+                                if (index < _connectStates.length) {
+                                  _connectStates[index] =
+                                      _ConnectState.connecting;
+                                }
+                              });
+                              try {
+                                await _connect(_scanResults[index].device);
                                 setState(() {
                                   if (index < _connectStates.length) {
                                     _connectStates[index] =
-                                        _ConnectState.connecting;
+                                        _ConnectState.connected;
+                                    _isConnected = true;
                                   }
                                 });
-                                try {
-                                  await _connect(_scanResults[index].device);
-                                  setState(() {
-                                    if (index < _connectStates.length) {
-                                      _connectStates[index] =
-                                          _ConnectState.connected;
-                                      _isConnected = true;
-                                    }
-                                  });
-                                } catch (_) {
-                                  setState(() {
-                                    if (index < _connectStates.length) {
-                                      _connectStates[index] =
-                                          _ConnectState.idle;
-                                    }
-                                  });
-                                }
-                              },
-                            );
-                          }
-                          return Container();
-                        },
-                      ),
-                    ],
-                  ),
+                              } catch (_) {
+                                setState(() {
+                                  if (index < _connectStates.length) {
+                                    _connectStates[index] = _ConnectState.idle;
+                                  }
+                                });
+                              }
+                            },
+                          );
+                        }
+                        return Container();
+                      },
+                    ),
+                  ],
                 ),
               ),
             ),
