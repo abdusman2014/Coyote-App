@@ -84,6 +84,8 @@ flutter:
     - assets/images/scanner.svg
     - assets/images/about.svg
     - assets/images/value_bar.svg
+    - assets/images/light.svg
+    - assets/images/bg.svg
     - assets/images/about_test.png
     - assets/animations/bluetooth_search.json
   #   - images/a_dot_ham.jpeg
