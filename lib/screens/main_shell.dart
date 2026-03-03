@@ -20,10 +20,10 @@ class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
   static const _navItems = [
-    CoyoteNavItem(label: 'Home', icon: Icons.home_outlined),
-    CoyoteNavItem(label: 'Pair', icon: Icons.bluetooth),
-    CoyoteNavItem(label: 'Presets', icon: Icons.settings_outlined),
-    CoyoteNavItem(label: 'About', icon: Icons.info_outline),
+    CoyoteNavItem(label: 'Home', icon:  "assets/images/home.svg"),
+    CoyoteNavItem(label: 'Pair', icon: "assets/images/pair.svg"),
+    CoyoteNavItem(label: 'Presets', icon: "assets/images/presets.svg"),
+    CoyoteNavItem(label: 'About', icon: "assets/images/about.svg"),
   ];
 
   late final List<Widget> _pages;
@@ -51,10 +51,7 @@ class _MainShellState extends State<MainShell> {
               body: Column(
                 children: [
                   Expanded(
-                    child: IndexedStack(
-                      index: _currentIndex,
-                      children: _pages,
-                    ),
+                    child: IndexedStack(index: _currentIndex, children: _pages),
                   ),
                   CoyoteNavBar(
                     items: _navItems,
@@ -67,9 +64,7 @@ class _MainShellState extends State<MainShell> {
             if (isLoading)
               Container(
                 color: Colors.black.withOpacity(0.5),
-                child: const Center(
-                  child: CircularProgressIndicator(),
-                ),
+                child: const Center(child: CircularProgressIndicator()),
               ),
           ],
         );

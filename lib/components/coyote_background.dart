@@ -21,9 +21,9 @@ class CoyoteBackground extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          SvgPicture.asset(
-            'assets/images/bg.svg',
-            fit: BoxFit.cover,
+          Opacity(
+            opacity: 0.4,
+            child: SvgPicture.asset('assets/images/bg.svg', fit: BoxFit.cover),
           ),
           child,
         ],
@@ -31,4 +31,3 @@ class CoyoteBackground extends StatelessWidget {
     );
   }
 }
-

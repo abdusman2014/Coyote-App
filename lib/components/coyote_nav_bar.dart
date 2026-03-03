@@ -1,15 +1,13 @@
 import 'package:flutter/material.dart';
+import 'package:flutter_svg/svg.dart';
 import '../theme/app_colors.dart';
 
 /// A single item in the nav bar (icon + label).
 class CoyoteNavItem {
-  const CoyoteNavItem({
-    required this.label,
-    required this.icon,
-  });
+  const CoyoteNavItem({required this.label, required this.icon});
 
   final String label;
-  final IconData icon;
+  final String icon;
 }
 
 /// Bottom navigation bar with dark background, icon + label per item,
@@ -29,9 +27,7 @@ class CoyoteNavBar extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     return Container(
-      decoration: const BoxDecoration(
-        color: AppColors.navBarBackground,
-      ),
+      decoration: const BoxDecoration(color: AppColors.navBarBackground),
       child: SafeArea(
         top: false,
         child: Padding(
@@ -84,11 +80,12 @@ class _NavBarTile extends StatelessWidget {
                   if (isSelected) _buildPillIndicator(),
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: Icon(
-                      item.icon,
-                      size: 26,
-                      color: color,
-                    ),
+                    child: SvgPicture.asset(item.icon),
+                    // Icon(
+                    //   item.icon,
+                    //   size: 26,
+                    //   color: color,
+                    // ),
                   ),
                 ],
               ),

@@ -1,7 +1,6 @@
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:coyote_app/controller/ble_controller.dart';
-import 'package:coyote_app/services/ble_manager.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
 import 'package:flutter_svg/flutter_svg.dart';
@@ -449,14 +448,14 @@ class _DeviceCard extends StatelessWidget {
                   Text(
                     deviceName,
                     style: TextStyle(
-                      fontSize: 15,
-                      fontWeight: FontWeight.w400,
+                      fontSize: 10,
+                      fontWeight: FontWeight.w600,
                       color: isSelected
                           ? AppColors.textPrimary
                           : AppColors.textMuted,
                     ),
                   ),
-                  if (deviceName != "")
+                  if (deviceName != "" && deviceName != "str")
                     GestureDetector(
                       onTap: onDisconnect,
                       child: Container(
@@ -710,7 +709,7 @@ class _DeviceListTile extends StatelessWidget {
               child: const Text(
                 'Connect',
                 style: TextStyle(
-                  fontSize: 14,
+                  fontSize: 16,
                   fontWeight: FontWeight.w500,
                   color: AppColors.primary,
                 ),

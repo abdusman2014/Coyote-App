@@ -21,6 +21,7 @@ class CoyoteApp extends StatelessWidget {
       title: 'Coyote',
       debugShowCheckedModeBanner: false,
       theme: ThemeData(
+        fontFamily: 'Poppins',
         colorScheme: ColorScheme.dark(
           primary: AppColors.primary,
           surface: AppColors.surface,

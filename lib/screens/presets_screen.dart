@@ -32,7 +32,7 @@ class _PresetsScreenState extends State<PresetsScreen> {
   @override
   Widget build(BuildContext context) {
     return Scaffold(
-      body:  CoyoteBackground(
+      body: CoyoteBackground(
         child: SafeArea(
           child: Padding(
             padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -211,8 +211,8 @@ class _PresetTile extends StatelessWidget {
               child: Text(
                 '$value',
                 style: const TextStyle(
-                  fontSize: 20,
-                  fontWeight: FontWeight.w700,
+                  fontSize: 24,
+                  fontWeight: FontWeight.w600,
                   color: AppColors.primary,
                 ),
               ),

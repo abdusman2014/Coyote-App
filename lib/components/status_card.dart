@@ -78,7 +78,7 @@ class StatusCard extends StatelessWidget {
                           Text(
                             title,
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 11,
                               fontWeight: FontWeight.w400,
                               color: isConnected
                                   ? AppColors.statusCardTitle
@@ -97,7 +97,7 @@ class StatusCard extends StatelessWidget {
                           Text(
                             title,
                             style: TextStyle(
-                              fontSize: 14,
+                              fontSize: 11,
                               fontWeight: FontWeight.w400,
                               color: isConnected
                                   ? AppColors.statusCardTitle
