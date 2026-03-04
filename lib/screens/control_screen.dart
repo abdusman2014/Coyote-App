@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:coyote_app/components/action_widget.dart';
 import 'package:coyote_app/components/vacuum_gauge_slider.dart';
 import 'package:coyote_app/controller/ble_controller.dart';
@@ -23,20 +25,36 @@ class _ControlScreenState extends State<ControlScreen> {
   int _targetVacuum = 12;
   double _actualVacuum = 8.4;
 
+  Timer? _timer;
+
+  void startFiveSecondTimerRight() {
+    _timer = Timer.periodic(Duration(seconds: 2), (timer) {
+      _bleController.currentPressure += 1;
+      setState(() {});
+    });
+  }
+
+  @override
+  void initState() {
+    // TODO: implement initState
+    startFiveSecondTimerRight();
+    super.initState();
+  }
+
   @override
   Widget build(BuildContext context) {
     return GetBuilder<BleController>(
       init: _bleController,
       builder: (_) {
         return Scaffold(
-          body:  CoyoteBackground(
+          body: CoyoteBackground(
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
                 child: Column(
                   crossAxisAlignment: CrossAxisAlignment.stretch,
                   children: [
-                     SizedBox(height: 20),
+                    SizedBox(height: 20),
                     _buildHeader(),
                     const SizedBox(height: 28),
                     SegmentedControl<String>(
@@ -63,7 +81,7 @@ class _ControlScreenState extends State<ControlScreen> {
 
                     Expanded(
                       child:
-                          _bleController.isConnected(
+                          !_bleController.isConnected(
                             deviceSide: _sideIndex == 0
                                 ? DeviceSide.left
                                 : DeviceSide.right,

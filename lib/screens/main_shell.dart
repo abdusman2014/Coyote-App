@@ -20,10 +20,26 @@ class _MainShellState extends State<MainShell> {
   int _currentIndex = 0;
 
   static const _navItems = [
-    CoyoteNavItem(label: 'Home', icon:  "assets/images/home.svg"),
-    CoyoteNavItem(label: 'Pair', icon: "assets/images/pair.svg"),
-    CoyoteNavItem(label: 'Presets', icon: "assets/images/presets.svg"),
-    CoyoteNavItem(label: 'About', icon: "assets/images/about.svg"),
+    CoyoteNavItem(
+      label: 'Home',
+      icon: 'assets/images/home.svg',
+      selectedIcon: 'assets/images/home_select.svg',
+    ),
+    CoyoteNavItem(
+      label: 'Pair',
+      icon: 'assets/images/pair.svg',
+      selectedIcon: 'assets/images/pair_select.svg',
+    ),
+    CoyoteNavItem(
+      label: 'Presets',
+      icon: 'assets/images/presets.svg',
+      selectedIcon: 'assets/images/presets_select.svg',
+    ),
+    CoyoteNavItem(
+      label: 'About',
+      icon: 'assets/images/about.svg',
+      selectedIcon: 'assets/images/about_select.svg',
+    ),
   ];
 
   late final List<Widget> _pages;

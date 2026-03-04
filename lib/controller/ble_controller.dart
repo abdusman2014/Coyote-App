@@ -145,7 +145,8 @@ class BleController extends GetxController {
 
           splitData(msg);
         });
-        sendInitalMessages(DeviceSide.left);
+        await sendInitalMessages(DeviceSide.left);
+        startFiveSecondTimerLeft();
       }
     } else {
       if (!devices.item2.isConnected) {
@@ -158,7 +159,8 @@ class BleController extends GetxController {
           print(msg);
           splitData(msg);
         });
-        sendInitalMessages(DeviceSide.right);
+        await sendInitalMessages(DeviceSide.right);
+        startFiveSecondTimerRight();
       }
     }
 
@@ -185,10 +187,10 @@ class BleController extends GetxController {
 
   void splitData(String msg) {
     // Battery Info
-    
+
     if (msg.isNotEmpty && msg[0] == '7') {
       batteryInfo = Battery.fromString(msg);
- 
+
       batteryInfoTest = msg;
 
       print(batteryInfo);
@@ -220,6 +222,28 @@ class BleController extends GetxController {
       devices.item1.sendMessage("4");
       devices.item1.sendMessage("6");
     }
+  }
+
+  Timer? _timerLeft;
+
+  void startFiveSecondTimerLeft() {
+    _timerLeft = Timer.periodic(Duration(seconds: 5), (timer) {
+      sendCommands(DeviceSide.left);
+    });
+  }
+
+  Timer? _timerRight;
+
+  void startFiveSecondTimerRight() {
+    _timerLeft = Timer.periodic(Duration(seconds: 5), (timer) {
+      sendCommands(DeviceSide.right);
+    });
+  }
+
+  void sendCommands(DeviceSide deviceSide) {
+    sendMessage(message: "4", deviceSide: deviceSide);
+    sendMessage(message: "6", deviceSide: deviceSide);
+    sendMessage(message: "7", deviceSide: deviceSide);
   }
 
   Future<void> sendMessage({

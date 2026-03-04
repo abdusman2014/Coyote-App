@@ -4,10 +4,15 @@ import '../theme/app_colors.dart';
 
 /// A single item in the nav bar (icon + label).
 class CoyoteNavItem {
-  const CoyoteNavItem({required this.label, required this.icon});
+  const CoyoteNavItem({
+    required this.label,
+    required this.icon,
+    this.selectedIcon,
+  });
 
   final String label;
   final String icon;
+  final String? selectedIcon;
 }
 
 /// Bottom navigation bar with dark background, icon + label per item,
@@ -62,6 +67,9 @@ class _NavBarTile extends StatelessWidget {
   @override
   Widget build(BuildContext context) {
     final color = isSelected ? AppColors.navBarSelected : AppColors.textMuted;
+    final iconPath = isSelected && item.selectedIcon != null
+        ? item.selectedIcon!
+        : item.icon;
 
     return Expanded(
       child: Material(
@@ -80,7 +88,7 @@ class _NavBarTile extends StatelessWidget {
                   if (isSelected) _buildPillIndicator(),
                   Padding(
                     padding: const EdgeInsets.only(top: 8),
-                    child: SvgPicture.asset(item.icon),
+                    child: SvgPicture.asset(iconPath),
                     // Icon(
                     //   item.icon,
                     //   size: 26,
