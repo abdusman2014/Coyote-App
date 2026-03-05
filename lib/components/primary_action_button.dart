@@ -20,6 +20,7 @@ class PrimaryActionButton extends StatelessWidget {
   Widget build(BuildContext context) {
     return SizedBox(
       width: double.infinity,
+      height: 64,
       child: FilledButton.icon(
         onPressed: onPressed,
         icon: Icon(

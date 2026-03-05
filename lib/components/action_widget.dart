@@ -23,8 +23,8 @@ class ActionWidget extends StatelessWidget {
       child: GestureDetector(
         onTap: onPress,
         child: Container(
-          height: 50,
-          margin: EdgeInsets.all(12),
+          height: 58,
+          margin: EdgeInsets.all(8),
           decoration: BoxDecoration(
             color: isSelected ? AppColors.primary : Colors.transparent,
             borderRadius: BorderRadius.circular(8),
@@ -34,7 +34,7 @@ class ActionWidget extends StatelessWidget {
             mainAxisAlignment: MainAxisAlignment.center,
             children: [
               SvgPicture.asset(imageUri),
-        
+
               const SizedBox(width: 8),
               Text(
                 label,

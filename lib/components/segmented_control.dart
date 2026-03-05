@@ -38,11 +38,12 @@ class SegmentedControl<T> extends StatelessWidget {
         final width = constraints.maxWidth;
         final count = options.length;
         final segmentWidth = count > 0 ? width / count : 0.0;
-        const margin = 6.0;
-        const verticalMargin = 6.0;
+        const margin = 8.0;
+        const verticalMargin = 8.0;
 
         return Container(
-          height: 52,
+          height: 58,
+          // padding: EdgeInsets.symmetric(vertical: 9, horizontal: 10),
           decoration: BoxDecoration(
             color: AppColors.segmentContainer,
             borderRadius: BorderRadius.circular(12),
@@ -70,7 +71,7 @@ class SegmentedControl<T> extends StatelessWidget {
                       color: options[0].isConnected
                           ? AppColors.primary
                           : AppColors.background,
-                      borderRadius: BorderRadius.circular(10),
+                      borderRadius: BorderRadius.circular(9),
                     ),
                   ),
                 ),
@@ -91,7 +92,7 @@ class SegmentedControl<T> extends StatelessWidget {
                             horizontal: 12,
                           ),
                           decoration: BoxDecoration(
-                            borderRadius: BorderRadius.circular(10),
+                            borderRadius: BorderRadius.circular(16),
                           ),
                           child: Center(
                             child: Row(
@@ -99,7 +100,7 @@ class SegmentedControl<T> extends StatelessWidget {
                               mainAxisAlignment: MainAxisAlignment.center,
                               children: [
                                 SvgPicture.asset(option.imageUri),
-                                
+
                                 const SizedBox(width: 8),
                                 Text(
                                   option.label,

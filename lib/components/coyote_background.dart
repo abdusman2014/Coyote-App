@@ -21,9 +21,10 @@ class CoyoteBackground extends StatelessWidget {
       child: Stack(
         fit: StackFit.expand,
         children: [
-          Opacity(
-            opacity: 0.4,
-            child: SvgPicture.asset('assets/images/bg.svg', fit: BoxFit.cover),
+          Image.asset(
+            'assets/images/light.png',
+            fit: BoxFit.cover,
+            // height: MediaQuery.of(context).size.height,
           ),
           child,
         ],

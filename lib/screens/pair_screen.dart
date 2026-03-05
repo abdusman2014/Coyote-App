@@ -133,7 +133,7 @@ class _PairScreenState extends State<PairScreen> {
       init: _bleController,
       builder: (_) {
         return Scaffold(
-          body:  CoyoteBackground(
+          body: CoyoteBackground(
             child: SafeArea(
               child: Padding(
                 padding: const EdgeInsets.symmetric(horizontal: 24),
@@ -171,7 +171,7 @@ class _PairScreenState extends State<PairScreen> {
                             },
                           ),
                         ),
-                        const SizedBox(width: 16),
+                        const SizedBox(width: 12),
                         Expanded(
                           child: _DeviceCard(
                             label: 'Right',
@@ -431,7 +431,7 @@ class _DeviceCard extends StatelessWidget {
               // ),
               Expanded(child: Container()),
               Column(
-                mainAxisAlignment: MainAxisAlignment.center,
+                // mainAxisAlignment: MainAxisAlignment.center,
                 children: [
                   SvgPicture.asset(imageUri, height: 30),
                   const SizedBox(height: 18),
@@ -478,7 +478,7 @@ class _DeviceCard extends StatelessWidget {
                     ),
                 ],
               ),
-              // Expanded(child: Container()),
+              Expanded(child: Container()),
             ],
           ),
         ),

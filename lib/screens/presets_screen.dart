@@ -54,7 +54,7 @@ class _PresetsScreenState extends State<PresetsScreen> {
                     _LanguageDropdown(),
                   ],
                 ),
-                const SizedBox(height: 32),
+                const SizedBox(height: 39),
                 _PresetTile(
                   imageUri: "assets/images/sit_white.svg",
                   label: 'Sit',
@@ -74,7 +74,7 @@ class _PresetsScreenState extends State<PresetsScreen> {
                     setState(() => _sitValue = _clampValue(_sitValue - 1));
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _PresetTile(
                   imageUri: "assets/images/walk_white.svg",
                   label: 'Walk',
@@ -94,7 +94,7 @@ class _PresetsScreenState extends State<PresetsScreen> {
                     setState(() => _walkValue = _clampValue(_walkValue - 1));
                   },
                 ),
-                const SizedBox(height: 16),
+                const SizedBox(height: 12),
                 _PresetTile(
                   imageUri: "assets/images/run_white.svg",
                   label: 'Run',

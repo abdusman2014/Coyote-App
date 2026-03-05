@@ -116,13 +116,17 @@ class _NavBarTile extends StatelessWidget {
 
   Widget _buildPillIndicator() {
     return Positioned(
-      top: 0,
+      top: -12,
       child: Container(
-        width: 40,
-        height: 4,
+        width: 83,
+        height: 5.6,
+        margin: EdgeInsets.only(bottom: 4),
         decoration: BoxDecoration(
           color: AppColors.navBarSelected,
-          borderRadius: BorderRadius.circular(2),
+          borderRadius: BorderRadius.only(
+            bottomLeft: Radius.circular(7.6),
+            bottomRight: Radius.circular(7.6),
+          ),
         ),
       ),
     );

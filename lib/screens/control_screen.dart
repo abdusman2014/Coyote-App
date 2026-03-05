@@ -25,22 +25,6 @@ class _ControlScreenState extends State<ControlScreen> {
   int _targetVacuum = 12;
   double _actualVacuum = 8.4;
 
-  Timer? _timer;
-
-  void startFiveSecondTimerRight() {
-    _timer = Timer.periodic(Duration(seconds: 2), (timer) {
-      _bleController.currentPressure += 1;
-      setState(() {});
-    });
-  }
-
-  @override
-  void initState() {
-    // TODO: implement initState
-    startFiveSecondTimerRight();
-    super.initState();
-  }
-
   @override
   Widget build(BuildContext context) {
     return GetBuilder<BleController>(
@@ -81,7 +65,7 @@ class _ControlScreenState extends State<ControlScreen> {
 
                     Expanded(
                       child:
-                          !_bleController.isConnected(
+                          _bleController.isConnected(
                             deviceSide: _sideIndex == 0
                                 ? DeviceSide.left
                                 : DeviceSide.right,
@@ -113,11 +97,8 @@ class _ControlScreenState extends State<ControlScreen> {
                           : SvgPicture.asset("assets/images/value_bar.svg"),
                     ),
                     Container(
-                      height: 52,
-                      // padding: const EdgeInsets.symmetric(
-                      //   // vertical: 12,
-                      //   horizontal: 36,
-                      // ),
+                      height: 58,
+                    
                       decoration: BoxDecoration(
                         color: AppColors.segmentContainer,
                         borderRadius: BorderRadius.circular(12),
@@ -216,53 +197,8 @@ class _ControlScreenState extends State<ControlScreen> {
                         ],
                       ),
                     ),
-                    // SegmentedControl<String>(
-                    //   options: [
-                    //     SegmentOption(
-                    //       label: 'Sit',
-                    //       imageUri: //"assets/images/walk_white.svg",
-                    //       _activityIndex == 0
-                    //           ? "assets/images/sit_white.svg"
-                    //           : "assets/images/sit_grey.svg",
-                    //       isConnected: _bleController.isConnected(
-                    //         deviceSide: _sideIndex == 0
-                    //             ? DeviceSide.left
-                    //             : DeviceSide.right,
-                    //       ),
-                    //     ),
-                    //     SegmentOption(
-                    //       label: 'Walk',
-                    //       imageUri: _activityIndex == 1
-                    //           ? "assets/images/walk_white.svg"
-                    //           : "assets/images/walk_grey.svg",
-                    //       isConnected: _bleController.isConnected(
-                    //         deviceSide: _sideIndex == 0
-                    //             ? DeviceSide.left
-                    //             : DeviceSide.right,
-                    //       ),
-                    //     ),
-                    //     SegmentOption(
-                    //       label: 'Run',
-                    //       imageUri: _activityIndex == 2
-                    //           ? "assets/images/run_white.svg"
-                    //           : "assets/images/run_grey.svg",
-                    //       isConnected: _bleController.isConnected(
-                    //         deviceSide: _sideIndex == 0
-                    //             ? DeviceSide.left
-                    //             : DeviceSide.right,
-                    //       ),
-                    //     ),
-                    //   ],
-                    //   selectedIndex: _activityIndex,
-                    //   onChanged: (i) async {
-                    //     // await _bleController.sendMessage(
-                    //     //   deviceSide: DeviceSide.left,
-                    //     //   message: "Hello World",
-                    //     // );
-                    //     setState(() => _activityIndex = i);
-                    //   },
-                    // ),
-                    const SizedBox(height: 14),
+
+                    const SizedBox(height: 32),
                     SizedBox(
                       height: 76,
                       child: Row(
@@ -287,7 +223,7 @@ class _ControlScreenState extends State<ControlScreen> {
                               onTap: _onBluetoothTap,
                             ),
                           ),
-                          const SizedBox(width: 12),
+                          const SizedBox(width: 8),
                           Expanded(
                             child: StatusCard(
                               title: 'Battery',
@@ -334,7 +270,7 @@ class _ControlScreenState extends State<ControlScreen> {
                         ],
                       ),
                     ),
-                    const SizedBox(height: 20),
+                    const SizedBox(height: 8),
                     PrimaryActionButton(
                       label: _bleController.pumpStatus == 1
                           ? 'Turn Off'
@@ -343,7 +279,7 @@ class _ControlScreenState extends State<ControlScreen> {
                       onPressed: _onTurnOff,
                       isOn: _bleController.pumpStatus == 1,
                     ),
-                    const SizedBox(height: 20),
+                    // const SizedBox(height: 20),
                   ],
                 ),
               ),

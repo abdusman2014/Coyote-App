@@ -94,7 +94,9 @@ flutter:
     - assets/images/about_select.svg
     - assets/images/pair_select.svg
     - assets/images/presets_select.svg
+    - assets/images/background.svg
     - assets/images/about_test.png
+    - assets/images/light.png
     - assets/animations/bluetooth_search.json
   #   - images/a_dot_ham.jpeg
 
