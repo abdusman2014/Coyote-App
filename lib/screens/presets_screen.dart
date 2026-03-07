@@ -46,6 +46,7 @@ class _PresetsScreenState extends State<PresetsScreen> {
                     const Text(
                       'Preset',
                       style: TextStyle(
+                        fontFamily: 'cy_grotesk',
                         fontSize: 25,
                         fontWeight: FontWeight.w600,
                         color: AppColors.textPrimary,
@@ -206,11 +207,13 @@ class _PresetTile extends StatelessWidget {
           ),
           const SizedBox(width: 8),
           SizedBox(
-            width: 35,
+            width: 50,
+            height: 36,
             child: Center(
               child: Text(
                 '$value',
                 style: const TextStyle(
+                  fontFamily: 'cy_grotesk',
                   fontSize: 24,
                   fontWeight: FontWeight.w600,
                   color: AppColors.primary,

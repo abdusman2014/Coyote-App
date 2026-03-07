@@ -111,3 +111,6 @@ flutter:
           weight: 600
         - asset: assets/fonts/Poppins/Poppins-Bold.ttf
           weight: 700
+    - family: cy_grotesk
+      fonts:
+        - asset: assets/fonts/cy_grotesk/kobuzan-cy-grotesk-grand-dark.otf

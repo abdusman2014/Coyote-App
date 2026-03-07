@@ -52,8 +52,9 @@ class _AboutHeader extends StatelessWidget {
     return Text(
       'About',
       style: const TextStyle(
-        fontSize: 30,
-        fontWeight: FontWeight.w700,
+        fontFamily: 'cy_grotesk',
+        fontSize: 25,
+        fontWeight: FontWeight.w400,
         color: AppColors.textPrimary,
         // decoration: TextDecoration.underline,
         // decorationThickness: 2,

@@ -75,6 +75,8 @@ class _NavBarTile extends StatelessWidget {
       child: Material(
         color: Colors.transparent,
         child: InkWell(
+          splashColor: Colors.transparent,
+          highlightColor: Colors.transparent,
           onTap: onTap,
           child: Column(
             mainAxisSize: MainAxisSize.min,

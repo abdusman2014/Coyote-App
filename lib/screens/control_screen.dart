@@ -73,32 +73,36 @@ class _ControlScreenState extends State<ControlScreen> {
                           ? VacuumGaugeSlider(
                               minValue: 0,
                               maxValue: 20,
-                              currentValue: _bleController.currentPressure
+                              currentValue: _bleController
+                                  .getCurrentPressure(
+                                    _sideIndex == 0
+                                        ? DeviceSide.left
+                                        : DeviceSide.right,
+                                  )
                                   .toDouble(),
-                              targetValue: _bleController.targetPressure
+                              targetValue: _bleController
+                                  .getTargetPressure(
+                                    _sideIndex == 0
+                                        ? DeviceSide.left
+                                        : DeviceSide.right,
+                                  )
                                   .toDouble(),
                               onChanged: (value) async {
-                                // Handle value changes
-                                _bleController.removePreset();
+                                final side = _sideIndex == 0
+                                    ? DeviceSide.left
+                                    : DeviceSide.right;
+                                _bleController.removePreset(side);
                                 _bleController.setGuage(
                                   pressure: value.toInt(),
-                                  deviceSide: _sideIndex == 0
-                                      ? DeviceSide.left
-                                      : DeviceSide.right,
+                                  deviceSide: side,
                                 );
-                                // await _bleController.sendMessage(
-                                //   message: "5:${value.toInt()}",
-                                //   deviceSide: _sideIndex == 0
-                                //       ? DeviceSide.left
-                                //       : DeviceSide.right,
-                                // );
                               },
                             )
                           : SvgPicture.asset("assets/images/value_bar.svg"),
                     ),
                     Container(
                       height: 58,
-                    
+
                       decoration: BoxDecoration(
                         color: AppColors.segmentContainer,
                         borderRadius: BorderRadius.circular(12),
@@ -115,7 +119,12 @@ class _ControlScreenState extends State<ControlScreen> {
                         children: [
                           ActionWidget(
                             imageUri:
-                                _bleController.selectedPreset == Presets.sit &&
+                                _bleController.getSelectedPreset(
+                                          _sideIndex == 0
+                                              ? DeviceSide.left
+                                              : DeviceSide.right,
+                                        ) ==
+                                        Presets.sit &&
                                     _bleController.isConnected(
                                       deviceSide: _sideIndex == 0
                                           ? DeviceSide.left
@@ -125,7 +134,12 @@ class _ControlScreenState extends State<ControlScreen> {
                                 : "assets/images/sit_grey.svg",
                             label: "Sit",
                             isSelected:
-                                _bleController.selectedPreset == Presets.sit &&
+                                _bleController.getSelectedPreset(
+                                      _sideIndex == 0
+                                          ? DeviceSide.left
+                                          : DeviceSide.right,
+                                    ) ==
+                                    Presets.sit &&
                                 _bleController.isConnected(
                                   deviceSide: _sideIndex == 0
                                       ? DeviceSide.left
@@ -142,7 +156,12 @@ class _ControlScreenState extends State<ControlScreen> {
                           ),
                           ActionWidget(
                             imageUri:
-                                _bleController.selectedPreset == Presets.walk &&
+                                _bleController.getSelectedPreset(
+                                          _sideIndex == 0
+                                              ? DeviceSide.left
+                                              : DeviceSide.right,
+                                        ) ==
+                                        Presets.walk &&
                                     _bleController.isConnected(
                                       deviceSide: _sideIndex == 0
                                           ? DeviceSide.left
@@ -152,7 +171,12 @@ class _ControlScreenState extends State<ControlScreen> {
                                 : "assets/images/walk_grey.svg",
                             label: "Walk",
                             isSelected:
-                                _bleController.selectedPreset == Presets.walk &&
+                                _bleController.getSelectedPreset(
+                                      _sideIndex == 0
+                                          ? DeviceSide.left
+                                          : DeviceSide.right,
+                                    ) ==
+                                    Presets.walk &&
                                 _bleController.isConnected(
                                   deviceSide: _sideIndex == 0
                                       ? DeviceSide.left
@@ -169,7 +193,12 @@ class _ControlScreenState extends State<ControlScreen> {
                           ),
                           ActionWidget(
                             imageUri:
-                                _bleController.selectedPreset == Presets.run &&
+                                _bleController.getSelectedPreset(
+                                          _sideIndex == 0
+                                              ? DeviceSide.left
+                                              : DeviceSide.right,
+                                        ) ==
+                                        Presets.run &&
                                     _bleController.isConnected(
                                       deviceSide: _sideIndex == 0
                                           ? DeviceSide.left
@@ -179,7 +208,12 @@ class _ControlScreenState extends State<ControlScreen> {
                                 : "assets/images/run_grey.svg",
                             label: "Run",
                             isSelected:
-                                _bleController.selectedPreset == Presets.run &&
+                                _bleController.getSelectedPreset(
+                                      _sideIndex == 0
+                                          ? DeviceSide.left
+                                          : DeviceSide.right,
+                                    ) ==
+                                    Presets.run &&
                                 _bleController.isConnected(
                                   deviceSide: _sideIndex == 0
                                       ? DeviceSide.left
@@ -243,7 +277,11 @@ class _ControlScreenState extends State<ControlScreen> {
                                       mainAxisSize: MainAxisSize.min,
                                       children: [
                                         if (_bleController
-                                                .batteryInfo
+                                                .getBatteryInfo(
+                                                  _sideIndex == 0
+                                                      ? DeviceSide.left
+                                                      : DeviceSide.right,
+                                                )
                                                 .chargingStatus ==
                                             1) ...[
                                           Icon(
@@ -254,7 +292,7 @@ class _ControlScreenState extends State<ControlScreen> {
                                           const SizedBox(width: 4),
                                         ],
                                         Text(
-                                          '${_bleController.batteryInfo.batteryPercentage.toStringAsFixed(0)}%',
+                                          '${_bleController.getBatteryInfo(_sideIndex == 0 ? DeviceSide.left : DeviceSide.right).batteryPercentage.toStringAsFixed(0)}%',
                                           style: const TextStyle(
                                             fontSize: 15,
                                             fontWeight: FontWeight.w600,
@@ -272,12 +310,24 @@ class _ControlScreenState extends State<ControlScreen> {
                     ),
                     const SizedBox(height: 8),
                     PrimaryActionButton(
-                      label: _bleController.pumpStatus == 1
+                      label:
+                          _bleController.getPumpStatus(
+                                _sideIndex == 0
+                                    ? DeviceSide.left
+                                    : DeviceSide.right,
+                              ) ==
+                              1
                           ? 'Turn Off'
                           : 'Turn On',
                       icon: Icons.power_settings_new,
                       onPressed: _onTurnOff,
-                      isOn: _bleController.pumpStatus == 1,
+                      isOn:
+                          _bleController.getPumpStatus(
+                            _sideIndex == 0
+                                ? DeviceSide.left
+                                : DeviceSide.right,
+                          ) ==
+                          1,
                     ),
                     // const SizedBox(height: 20),
                   ],
@@ -326,6 +376,8 @@ class _ControlScreenState extends State<ControlScreen> {
   }
 
   void _showInfoDialog(BuildContext context) {
+    final side = _sideIndex == 0 ? DeviceSide.left : DeviceSide.right;
+    final battery = _bleController.getBatteryInfo(side);
     showDialog(
       context: context,
       builder: (BuildContext context) {
@@ -335,18 +387,13 @@ class _ControlScreenState extends State<ControlScreen> {
             mainAxisSize: MainAxisSize.min,
             crossAxisAlignment: CrossAxisAlignment.start,
             children: [
-              // Text(_bleController.batteryInfoTest),
               Text(
-                'chargingStatus: ${_bleController.batteryInfo.chargingStatus}',
+                "Charging Status:  ${battery.chargingStatus == 1 ? "Charging" : "Not Charging"}",
               ),
-              SizedBox(height: 8),
-              Text(
-                'batteryPercentage: ${_bleController.batteryInfo.batteryPercentage}',
-              ),
-              SizedBox(height: 8),
-              Text(
-                'batteryVoltage: ${_bleController.batteryInfo.batteryVoltage}',
-              ),
+              const SizedBox(height: 8),
+              Text('Battery Percentage: ${battery.batteryPercentage}'),
+              const SizedBox(height: 8),
+              Text('Battery Voltage: ${battery.batteryVoltage}'),
             ],
           ),
           actions: [
@@ -361,9 +408,10 @@ class _ControlScreenState extends State<ControlScreen> {
   }
 
   void _onTurnOff() async {
+    final side = _sideIndex == 0 ? DeviceSide.left : DeviceSide.right;
     await _bleController.sendMessage(
-      message: _bleController.pumpStatus == 1 ? "2" : "1",
-      deviceSide: _sideIndex == 0 ? DeviceSide.left : DeviceSide.right,
+      message: _bleController.getPumpStatus(side) == 1 ? "2" : "1",
+      deviceSide: side,
     );
   }
 }
