@@ -41,15 +41,30 @@ class BleController extends GetxController {
   );
   String deviceInfoName1 = "";
   String deviceInfoName2 = "";
-  Battery batteryInfo = Battery();
-  int currentPressure = 0;
-  int targetPressure = 0;
-  int pumpStatus = 0;
+  // Per-device state (left = 1, right = 2)
+  Battery batteryInfo1 = Battery();
+  Battery batteryInfo2 = Battery();
+  int currentPressure1 = 0;
+  int currentPressure2 = 0;
+  int targetPressure1 = 0;
+  int targetPressure2 = 0;
+  int pumpStatus1 = 0;
+  int pumpStatus2 = 0;
+  Presets selectedPreset1 = Presets.non;
+  Presets selectedPreset2 = Presets.non;
   Map<String, int> preSets = {"sit": 8, "walk": 10, "run": 20};
-  Presets selectedPreset = Presets.non;
   List<ScanResult> scanResults = [];
 
-  String batteryInfoTest = "";
+  Battery getBatteryInfo(DeviceSide side) =>
+      side == DeviceSide.left ? batteryInfo1 : batteryInfo2;
+  int getCurrentPressure(DeviceSide side) =>
+      side == DeviceSide.left ? currentPressure1 : currentPressure2;
+  int getTargetPressure(DeviceSide side) =>
+      side == DeviceSide.left ? targetPressure1 : targetPressure2;
+  int getPumpStatus(DeviceSide side) =>
+      side == DeviceSide.left ? pumpStatus1 : pumpStatus2;
+  Presets getSelectedPreset(DeviceSide side) =>
+      side == DeviceSide.left ? selectedPreset1 : selectedPreset2;
 
   BleController() {
     devices = Tuple2(
@@ -81,11 +96,16 @@ class BleController extends GetxController {
     devices.item2.clearConnection();
     deviceInfo1 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
     deviceInfo2 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
-    batteryInfo = Battery();
-    currentPressure = 0;
-    targetPressure = 0;
-    pumpStatus = 0;
-    selectedPreset = Presets.non;
+    batteryInfo1 = Battery();
+    batteryInfo2 = Battery();
+    currentPressure1 = 0;
+    currentPressure2 = 0;
+    targetPressure1 = 0;
+    targetPressure2 = 0;
+    pumpStatus1 = 0;
+    pumpStatus2 = 0;
+    selectedPreset1 = Presets.non;
+    selectedPreset2 = Presets.non;
     scanResults = [];
     isReconnecting = false;
     _stopReconnectLoop(DeviceSide.left);
@@ -142,8 +162,7 @@ class BleController extends GetxController {
 
         devices.item1.messageStream.listen((msg) {
           print(msg);
-
-          splitData(msg);
+          splitData(msg, DeviceSide.left);
         });
         await sendInitalMessages(DeviceSide.left);
         startFiveSecondTimerLeft();
@@ -157,7 +176,7 @@ class BleController extends GetxController {
         await devices.item2.connect(device);
         devices.item2.messageStream.listen((msg) {
           print(msg);
-          splitData(msg);
+          splitData(msg, DeviceSide.right);
         });
         await sendInitalMessages(DeviceSide.right);
         startFiveSecondTimerRight();
@@ -172,42 +191,60 @@ class BleController extends GetxController {
 
   Future<void> disconnect(DeviceSide deviceSide) async {
     if (deviceSide == DeviceSide.left) {
+      _timerLeft?.cancel();
+      _timerLeft = null;
       await devices.item1.disconnect();
       deviceInfo1 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
       deviceInfoName1 = "";
+      batteryInfo1 = Battery();
+      currentPressure1 = 0;
+      targetPressure1 = 0;
+      pumpStatus1 = 0;
+      selectedPreset1 = Presets.non;
     } else {
+      _timerRight?.cancel();
+      _timerRight = null;
       await devices.item2.disconnect();
       deviceInfo2 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
       deviceInfoName2 = "";
+      batteryInfo2 = Battery();
+      currentPressure2 = 0;
+      targetPressure2 = 0;
+      pumpStatus2 = 0;
+      selectedPreset2 = Presets.non;
     }
     _stopReconnectLoop(deviceSide);
     update();
     _saveState();
   }
 
-  void splitData(String msg) {
-    // Battery Info
-
-    if (msg.isNotEmpty && msg[0] == '7') {
-      batteryInfo = Battery.fromString(msg);
-
-      batteryInfoTest = msg;
-
-      print(batteryInfo);
-    } else if (msg.isNotEmpty && msg[0] == '4') {
-      List<String> parts = msg.split(':');
-      currentPressure = int.parse(parts[1]) < 0 ? 0 : int.parse(parts[1]);
-    } else if (msg.isNotEmpty && msg[0] == '6') {
-      List<String> parts = msg.split(':');
-      pumpStatus = int.parse(parts[1]);
-    } else if (msg.isNotEmpty && msg[0] == '1') {
-      List<String> parts = msg.split(':');
-      pumpStatus = int.parse(parts[1]);
-    } else if (msg.isNotEmpty && msg[0] == '2') {
-      List<String> parts = msg.split(':');
-      pumpStatus = int.parse(parts[1]);
+  void splitData(String msg, DeviceSide side) {
+    if (msg.isEmpty) return;
+    if (msg[0] == '7') {
+      final battery = Battery.fromString(msg);
+      if (side == DeviceSide.left) {
+        batteryInfo1 = battery;
+      } else {
+        batteryInfo2 = battery;
+      }
+      print(battery);
+    } else if (msg[0] == '4') {
+      final parts = msg.split(':');
+      final value = int.parse(parts[1]) < 0 ? 0 : int.parse(parts[1]);
+      if (side == DeviceSide.left) {
+        currentPressure1 = value;
+      } else {
+        currentPressure2 = value;
+      }
+    } else if (msg[0] == '6' || msg[0] == '1' || msg[0] == '2') {
+      final parts = msg.split(':');
+      final value = int.parse(parts[1]);
+      if (side == DeviceSide.left) {
+        pumpStatus1 = value;
+      } else {
+        pumpStatus2 = value;
+      }
     }
-    // Trigger UI updates (e.g. ControlScreen battery widget)
     _saveState();
     update();
   }
@@ -219,8 +256,8 @@ class BleController extends GetxController {
       devices.item1.sendMessage("6");
     } else {
       devices.item2.sendMessage("7");
-      devices.item1.sendMessage("4");
-      devices.item1.sendMessage("6");
+      devices.item2.sendMessage("4");
+      devices.item2.sendMessage("6");
     }
   }
 
@@ -235,7 +272,7 @@ class BleController extends GetxController {
   Timer? _timerRight;
 
   void startFiveSecondTimerRight() {
-    _timerLeft = Timer.periodic(Duration(seconds: 5), (timer) {
+    _timerRight = Timer.periodic(const Duration(seconds: 5), (timer) {
       sendCommands(DeviceSide.right);
     });
   }
@@ -251,7 +288,6 @@ class BleController extends GetxController {
     required DeviceSide deviceSide,
   }) async {
     if (deviceSide == DeviceSide.left) {
-      print(devices.item1);
       if (devices.item1.isConnected) {
         devices.item1.sendMessage(message);
       }
@@ -260,16 +296,17 @@ class BleController extends GetxController {
         devices.item2.sendMessage(message);
       }
     }
-    devices.item1.messageStream.listen((msg) {
-      print(msg);
-    });
   }
 
   Future<void> setGuage({
     required int pressure,
     required DeviceSide deviceSide,
   }) async {
-    targetPressure = pressure;
+    if (deviceSide == DeviceSide.left) {
+      targetPressure1 = pressure;
+    } else {
+      targetPressure2 = pressure;
+    }
     await sendMessage(message: "5:${pressure.toInt()}", deviceSide: deviceSide);
     _saveState();
   }
@@ -318,20 +355,25 @@ class BleController extends GetxController {
   }
 
   void _handleDisconnected(DeviceSide side) {
-    // If both sides are now disconnected, reset only volatile state.
-    // Keep targetPressure & selectedPreset so user configuration persists
-    // across device power cycles and auto-reconnect.
+    // Clear volatile state for the disconnected side only.
+    if (side == DeviceSide.left) {
+      batteryInfo1 = Battery();
+      currentPressure1 = 0;
+      pumpStatus1 = 0;
+      _timerLeft?.cancel();
+      _timerLeft = null;
+    } else {
+      batteryInfo2 = Battery();
+      currentPressure2 = 0;
+      pumpStatus2 = 0;
+      _timerRight?.cancel();
+      _timerRight = null;
+    }
     if (!devices.item1.isConnected && !devices.item2.isConnected) {
-      batteryInfo = Battery();
-      currentPressure = 0;
-      pumpStatus = 0;
       scanResults = [];
     }
 
-    // Kick off background reconnect loop for this side (device powered off / out of range).
     _startReconnectLoop(side);
-
-    // Persist and notify UI to rebuild (ControlScreen, PairScreen, etc.)
     _saveState();
     update();
   }
@@ -357,19 +399,26 @@ class BleController extends GetxController {
       _box.remove('rightDeviceName');
     }
 
-    // Battery and runtime state
-    _box.write('batteryChargingStatus', batteryInfo.chargingStatus);
-    _box.write('batteryPercentage', batteryInfo.batteryPercentage);
-    _box.write('batteryVoltage', batteryInfo.batteryVoltage);
-    _box.write('batteryCurrentCycle', batteryInfo.currentCycle);
+    // Per-side battery and runtime state
+    _box.write('batteryChargingStatus1', batteryInfo1.chargingStatus);
+    _box.write('batteryPercentage1', batteryInfo1.batteryPercentage);
+    _box.write('batteryVoltage1', batteryInfo1.batteryVoltage);
+    _box.write('batteryCurrentCycle1', batteryInfo1.currentCycle);
+    _box.write('currentPressure1', currentPressure1);
+    _box.write('targetPressure1', targetPressure1);
+    _box.write('pumpStatus1', pumpStatus1);
+    _box.write('selectedPresetIndex1', selectedPreset1.index);
 
-    _box.write('currentPressure', currentPressure);
-    _box.write('targetPressure', targetPressure);
-    _box.write('pumpStatus', pumpStatus);
+    _box.write('batteryChargingStatus2', batteryInfo2.chargingStatus);
+    _box.write('batteryPercentage2', batteryInfo2.batteryPercentage);
+    _box.write('batteryVoltage2', batteryInfo2.batteryVoltage);
+    _box.write('batteryCurrentCycle2', batteryInfo2.currentCycle);
+    _box.write('currentPressure2', currentPressure2);
+    _box.write('targetPressure2', targetPressure2);
+    _box.write('pumpStatus2', pumpStatus2);
+    _box.write('selectedPresetIndex2', selectedPreset2.index);
 
-    // Presets and selection
     _box.write('preSets', preSets);
-    _box.write('selectedPresetIndex', selectedPreset.index);
   }
 
   void _restoreState() {
@@ -386,43 +435,64 @@ class BleController extends GetxController {
       deviceInfoName2 = _box.read<String>('rightDeviceName') ?? "str";
     }
 
-    // Battery info
-    final int? chargingStatus = _box.read<int>('batteryChargingStatus');
-    if (chargingStatus != null) {
-      batteryInfo.chargingStatus = chargingStatus;
-      final dynamic percent = _box.read('batteryPercentage');
-      final dynamic voltage = _box.read('batteryVoltage');
-      final double? cycle = _box.read<double>('batteryCurrentCycle');
-      batteryInfo.batteryPercentage = percent is num
-          ? percent.toDouble()
-          : batteryInfo.batteryPercentage;
-      batteryInfo.batteryVoltage = voltage is num
-          ? voltage.toDouble()
-          : batteryInfo.batteryVoltage;
-      batteryInfo.currentCycle = cycle ?? batteryInfo.currentCycle;
+    // Side 1
+    final int? c1 = _box.read<int>('batteryChargingStatus1');
+    if (c1 != null) {
+      batteryInfo1.chargingStatus = c1;
+      final dynamic p1 = _box.read('batteryPercentage1');
+      final dynamic v1 = _box.read('batteryVoltage1');
+      final double? cy1 = _box.read<double>('batteryCurrentCycle1');
+      batteryInfo1.batteryPercentage = p1 is num
+          ? p1.toDouble()
+          : batteryInfo1.batteryPercentage;
+      batteryInfo1.batteryVoltage = v1 is num
+          ? v1.toDouble()
+          : batteryInfo1.batteryVoltage;
+      batteryInfo1.currentCycle = cy1 ?? batteryInfo1.currentCycle;
+    }
+    final int? cur1 = _box.read<int>('currentPressure1');
+    final int? tgt1 = _box.read<int>('targetPressure1');
+    final int? pump1 = _box.read<int>('pumpStatus1');
+    if (cur1 != null) currentPressure1 = cur1;
+    if (tgt1 != null) targetPressure1 = tgt1;
+    if (pump1 != null) pumpStatus1 = pump1;
+    final int? sp1 = _box.read<int>('selectedPresetIndex1');
+    if (sp1 != null && sp1 >= 0 && sp1 < Presets.values.length) {
+      selectedPreset1 = Presets.values[sp1];
     }
 
-    // Pressures and pump
-    final int? storedCurrent = _box.read<int>('currentPressure');
-    final int? storedTarget = _box.read<int>('targetPressure');
-    final int? storedPump = _box.read<int>('pumpStatus');
-    if (storedCurrent != null) currentPressure = storedCurrent;
-    if (storedTarget != null) targetPressure = storedTarget;
-    if (storedPump != null) pumpStatus = storedPump;
+    // Side 2
+    final int? c2 = _box.read<int>('batteryChargingStatus2');
+    if (c2 != null) {
+      batteryInfo2.chargingStatus = c2;
+      final dynamic p2 = _box.read('batteryPercentage2');
+      final dynamic v2 = _box.read('batteryVoltage2');
+      final double? cy2 = _box.read<double>('batteryCurrentCycle2');
+      batteryInfo2.batteryPercentage = p2 is num
+          ? p2.toDouble()
+          : batteryInfo2.batteryPercentage;
+      batteryInfo2.batteryVoltage = v2 is num
+          ? v2.toDouble()
+          : batteryInfo2.batteryVoltage;
+      batteryInfo2.currentCycle = cy2 ?? batteryInfo2.currentCycle;
+    }
+    final int? cur2 = _box.read<int>('currentPressure2');
+    final int? tgt2 = _box.read<int>('targetPressure2');
+    final int? pump2 = _box.read<int>('pumpStatus2');
+    if (cur2 != null) currentPressure2 = cur2;
+    if (tgt2 != null) targetPressure2 = tgt2;
+    if (pump2 != null) pumpStatus2 = pump2;
+    final int? sp2 = _box.read<int>('selectedPresetIndex2');
+    if (sp2 != null && sp2 >= 0 && sp2 < Presets.values.length) {
+      selectedPreset2 = Presets.values[sp2];
+    }
 
-    // Presets
+    // Shared presets
     final dynamic storedPresets = _box.read('preSets');
     if (storedPresets is Map) {
       preSets = storedPresets.map(
         (key, value) => MapEntry(key.toString(), (value as num).toInt()),
       );
-    }
-
-    final int? presetIndex = _box.read<int>('selectedPresetIndex');
-    if (presetIndex != null &&
-        presetIndex >= 0 &&
-        presetIndex < Presets.values.length) {
-      selectedPreset = Presets.values[presetIndex];
     }
 
     update();
@@ -491,17 +561,9 @@ class BleController extends GetxController {
     required DeviceSide deviceSide,
     required Presets preset,
   }) async {
-    if (deviceSide == DeviceSide.left) {
-      if (!devices.item1.isConnected) {
-        return;
-      }
-    }
-    if (deviceSide == DeviceSide.right) {
-      if (!devices.item2.isConnected) {
-        return;
-      }
-    }
-    selectedPreset = preset;
+    if (deviceSide == DeviceSide.left && !devices.item1.isConnected) return;
+    if (deviceSide == DeviceSide.right && !devices.item2.isConnected) return;
+
     int value = 0;
     if (preset == Presets.sit) {
       value = preSets["sit"] ?? 0;
@@ -510,8 +572,15 @@ class BleController extends GetxController {
     } else {
       value = preSets["run"] ?? 0;
     }
+
+    if (deviceSide == DeviceSide.left) {
+      selectedPreset1 = preset;
+      targetPressure1 = value;
+    } else {
+      selectedPreset2 = preset;
+      targetPressure2 = value;
+    }
     sendMessage(message: "5:$value", deviceSide: deviceSide);
-    targetPressure = value;
     _saveState();
     update();
   }
@@ -529,8 +598,12 @@ class BleController extends GetxController {
     update();
   }
 
-  void removePreset() {
-    selectedPreset = Presets.non;
+  void removePreset(DeviceSide deviceSide) {
+    if (deviceSide == DeviceSide.left) {
+      selectedPreset1 = Presets.non;
+    } else {
+      selectedPreset2 = Presets.non;
+    }
     _saveState();
     update();
   }
