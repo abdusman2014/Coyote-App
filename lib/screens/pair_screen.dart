@@ -165,8 +165,10 @@ class _PairScreenState extends State<PairScreen> {
                                   : "assets/images/left_grey.svg",
                               deviceName: _bleController.deviceInfoName1
                                   .replaceFirst('PUCK_', ''),
-                              onDisconnect: () {
-                                _bleController.disconnect(DeviceSide.left);
+                              onDisconnect: () async {
+                                await _bleController.disconnect(
+                                  DeviceSide.left,
+                                );
                                 setState(() {
                                   _isScanning = false;
                                 });
@@ -184,8 +186,10 @@ class _PairScreenState extends State<PairScreen> {
                                   : "assets/images/right_grey.svg",
                               deviceName: _bleController.deviceInfoName2
                                   .replaceFirst('PUCK_', ''),
-                              onDisconnect: () {
-                                _bleController.disconnect(DeviceSide.right);
+                              onDisconnect: () async {
+                                await _bleController.disconnect(
+                                  DeviceSide.right,
+                                );
                                 setState(() {
                                   _isScanning = false;
                                 });
@@ -376,7 +380,7 @@ class _PairScreenState extends State<PairScreen> {
   // }
 }
 
-class _DeviceCard extends StatelessWidget {
+class _DeviceCard extends StatefulWidget {
   const _DeviceCard({
     required this.label,
     required this.isSelected,
@@ -391,19 +395,25 @@ class _DeviceCard extends StatelessWidget {
   final VoidCallback onTap;
   final String imageUri;
   final String deviceName;
-  final VoidCallback onDisconnect;
+  final Function onDisconnect;
 
   @override
+  State<_DeviceCard> createState() => _DeviceCardState();
+}
+
+class _DeviceCardState extends State<_DeviceCard> {
+  bool _isDisconnecting = false;
+  @override
   Widget build(BuildContext context) {
-    final background = isSelected
+    final background = widget.isSelected
         ? AppColors.primary
         : AppColors.segmentContainer;
-    final borderColor = isSelected
+    final borderColor = widget.isSelected
         ? AppColors.primary
         : Colors.white.withOpacity(0.06);
 
     return GestureDetector(
-      onTap: onTap,
+      onTap: widget.onTap,
       child: AspectRatio(
         aspectRatio: 0.9,
         child: Container(
@@ -411,7 +421,7 @@ class _DeviceCard extends StatelessWidget {
             color: background,
             borderRadius: BorderRadius.circular(30),
             border: Border.all(color: borderColor, width: 2),
-            boxShadow: isSelected
+            boxShadow: widget.isSelected
                 ? [
                     BoxShadow(
                       color: AppColors.primary.withOpacity(0.35),
@@ -426,7 +436,7 @@ class _DeviceCard extends StatelessWidget {
             children: [
               Align(
                 alignment: Alignment.centerRight,
-                child: _SelectionDot(isSelected: isSelected),
+                child: _SelectionDot(isSelected: widget.isSelected),
               ),
               // Row(
               //   children: [
@@ -442,47 +452,67 @@ class _DeviceCard extends StatelessWidget {
               Column(
                 // mainAxisAlignment: MainAxisAlignment.center,
                 children: [
-                  SvgPicture.asset(imageUri, height: 30),
+                  SvgPicture.asset(widget.imageUri, height: 30),
                   const SizedBox(height: 18),
                   Text(
-                    label,
+                    widget.label,
                     style: TextStyle(
                       fontSize: 15,
                       fontWeight: FontWeight.w400,
-                      color: isSelected
+                      color: widget.isSelected
                           ? AppColors.textPrimary
                           : AppColors.textMuted,
                     ),
                   ),
                   Text(
-                    deviceName,
+                    widget.deviceName,
                     style: TextStyle(
                       fontSize: 10,
                       fontWeight: FontWeight.w600,
-                      color: isSelected
+                      color: widget.isSelected
                           ? AppColors.textPrimary
                           : AppColors.textMuted,
                     ),
                   ),
-                  if (deviceName != "" && deviceName != "str")
+                  if (widget.deviceName != "" && widget.deviceName != "str")
                     GestureDetector(
-                      onTap: onDisconnect,
+                      onTap: () async {
+                        if (_isDisconnecting == true) {
+                          return;
+                        }
+                        setState(() {
+                          _isDisconnecting = true;
+                        });
+                        await widget.onDisconnect();
+                        // await Future.delayed(Duration(seconds: 2));
+                        setState(() {
+                          _isDisconnecting = false;
+                        });
+                      },
                       child: Container(
                         decoration: BoxDecoration(
                           border: Border.all(color: AppColors.gaugeTrackMin),
                           borderRadius: BorderRadius.circular(6),
                         ),
                         padding: EdgeInsets.all(6),
-                        child: Text(
-                          "Disconnect",
-                          style: TextStyle(
-                            fontSize: 10,
-                            fontWeight: FontWeight.w400,
-                            color: isSelected
-                                ? AppColors.textPrimary
-                                : AppColors.textMuted,
-                          ),
-                        ),
+                        child: _isDisconnecting
+                            ? SizedBox(
+                                height: 15,
+                                width: 15,
+                                child: CircularProgressIndicator(
+                                  color: AppColors.navBarBackground,
+                                ),
+                              )
+                            : Text(
+                                "Disconnect",
+                                style: TextStyle(
+                                  fontSize: 10,
+                                  fontWeight: FontWeight.w400,
+                                  color: widget.isSelected
+                                      ? AppColors.textPrimary
+                                      : AppColors.textMuted,
+                                ),
+                              ),
                       ),
                     ),
                 ],
