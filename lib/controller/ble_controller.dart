@@ -1,3 +1,5 @@
+
+
 import 'dart:async';
 import 'package:coyote_app/services/ble_manager.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -33,6 +35,12 @@ class BleController extends GetxController {
   bool isReconnecting = false;
   Timer? _leftReconnectTimer;
   Timer? _rightReconnectTimer;
+
+  // ── Fixed: one subscription per side ──────────────────────────────────────
+  StreamSubscription? _leftSubscription;
+  StreamSubscription? _rightSubscription;
+  // ──────────────────────────────────────────────────────────────────────────
+
   BluetoothDevice deviceInfo1 = BluetoothDevice(
     remoteId: DeviceIdentifier("str"),
   );
@@ -92,6 +100,13 @@ class BleController extends GetxController {
   /// When Bluetooth adapter is turned off, all connections are lost.
   /// Clear both sides and reset state immediately.
   void _handleBluetoothOff() {
+    // ── Fixed: cancel subscriptions before clearing ────────────────────────
+    _leftSubscription?.cancel();
+    _leftSubscription = null;
+    _rightSubscription?.cancel();
+    _rightSubscription = null;
+    // ──────────────────────────────────────────────────────────────────────
+
     devices.item1.clearConnection();
     devices.item2.clearConnection();
     deviceInfo1 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
@@ -160,12 +175,15 @@ class BleController extends GetxController {
         }
         await devices.item1.connect(device);
 
-        devices.item1.messageStream.listen((msg) {
+        // ── Fixed: cancel old subscription before creating a new one ───────
+        _leftSubscription?.cancel();
+        _leftSubscription = devices.item1.messageStream.listen((msg) {
           print(msg);
           splitData(msg, DeviceSide.left);
         });
+        // ───────────────────────────────────────────────────────────────────
+
         await sendInitalMessages(DeviceSide.left);
-        startFiveSecondTimerLeft();
       }
     } else {
       if (!devices.item2.isConnected) {
@@ -174,16 +192,19 @@ class BleController extends GetxController {
           deviceInfoName2 = device.advName;
         }
         await devices.item2.connect(device);
-        devices.item2.messageStream.listen((msg) {
+
+        // ── Fixed: cancel old subscription before creating a new one ───────
+        _rightSubscription?.cancel();
+        _rightSubscription = devices.item2.messageStream.listen((msg) {
           print(msg);
           splitData(msg, DeviceSide.right);
         });
+        // ───────────────────────────────────────────────────────────────────
+
         await sendInitalMessages(DeviceSide.right);
-        startFiveSecondTimerRight();
       }
     }
 
-    // Notify listeners that connection state changed so dependent UIs can rebuild.
     _stopReconnectLoop(deviceSide);
     _saveState();
     update();
@@ -193,6 +214,10 @@ class BleController extends GetxController {
     if (deviceSide == DeviceSide.left) {
       _timerLeft?.cancel();
       _timerLeft = null;
+      // ── Fixed: cancel subscription on disconnect ───────────────────────
+      _leftSubscription?.cancel();
+      _leftSubscription = null;
+      // ────────────────────────────────────────────────────────────────────
       await devices.item1.disconnect();
       deviceInfo1 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
       deviceInfoName1 = "";
@@ -204,6 +229,10 @@ class BleController extends GetxController {
     } else {
       _timerRight?.cancel();
       _timerRight = null;
+      // ── Fixed: cancel subscription on disconnect ───────────────────────
+      _rightSubscription?.cancel();
+      _rightSubscription = null;
+      // ────────────────────────────────────────────────────────────────────
       await devices.item2.disconnect();
       deviceInfo2 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
       deviceInfoName2 = "";
@@ -220,6 +249,7 @@ class BleController extends GetxController {
 
   void splitData(String msg, DeviceSide side) {
     if (msg.isEmpty) return;
+
     if (msg[0] == '7') {
       final battery = Battery.fromString(msg);
       if (side == DeviceSide.left) {
@@ -236,7 +266,7 @@ class BleController extends GetxController {
       } else {
         currentPressure2 = value;
       }
-    } else if (msg[0] == '6' || msg[0] == '1' || msg[0] == '2') {
+    } else if (msg[0] == '6') {
       final parts = msg.split(':');
       final value = int.parse(parts[1]);
       if (side == DeviceSide.left) {
@@ -278,8 +308,6 @@ class BleController extends GetxController {
   }
 
   void sendCommands(DeviceSide deviceSide) {
-    sendMessage(message: "4", deviceSide: deviceSide);
-    sendMessage(message: "6", deviceSide: deviceSide);
     sendMessage(message: "7", deviceSide: deviceSide);
   }
 
@@ -321,18 +349,14 @@ class BleController extends GetxController {
 
   Future<void> scan() async {
     devices.item1.startScan().listen((results) {
-      // scanResults = results;
       scanResults = results.where((result) {
         final name = result.device.advName;
         return name.startsWith('PUCK_');
       }).toList();
       print("scan");
       print(scanResults);
-      // scanResults = results;
       update();
     });
-    // await Future.delayed(Duration(seconds: 2));
-    // return scanResults;
   }
 
   bool isConnected({required DeviceSide deviceSide}) {
@@ -355,20 +379,26 @@ class BleController extends GetxController {
   }
 
   void _handleDisconnected(DeviceSide side) {
-    // Clear volatile state for the disconnected side only.
+    // ── Fixed: cancel subscription for the disconnected side ──────────────
     if (side == DeviceSide.left) {
+      _leftSubscription?.cancel();
+      _leftSubscription = null;
       batteryInfo1 = Battery();
       currentPressure1 = 0;
       pumpStatus1 = 0;
       _timerLeft?.cancel();
       _timerLeft = null;
     } else {
+      _rightSubscription?.cancel();
+      _rightSubscription = null;
       batteryInfo2 = Battery();
       currentPressure2 = 0;
       pumpStatus2 = 0;
       _timerRight?.cancel();
       _timerRight = null;
     }
+    // ──────────────────────────────────────────────────────────────────────
+
     if (!devices.item1.isConnected && !devices.item2.isConnected) {
       scanResults = [];
     }
@@ -379,7 +409,6 @@ class BleController extends GetxController {
   }
 
   void _saveState() {
-    // Persist last-known devices (by id and name)
     final leftId = deviceInfo1.remoteId.str;
     final rightId = deviceInfo2.remoteId.str;
 
@@ -399,7 +428,6 @@ class BleController extends GetxController {
       _box.remove('rightDeviceName');
     }
 
-    // Per-side battery and runtime state
     _box.write('batteryChargingStatus1', batteryInfo1.chargingStatus);
     _box.write('batteryPercentage1', batteryInfo1.batteryPercentage);
     _box.write('batteryVoltage1', batteryInfo1.batteryVoltage);
@@ -422,7 +450,6 @@ class BleController extends GetxController {
   }
 
   void _restoreState() {
-    // Restore last-known devices (so we know what was paired)
     final String? leftId = _box.read<String>('leftDeviceId');
     final String? rightId = _box.read<String>('rightDeviceId');
 
@@ -540,9 +567,7 @@ class BleController extends GetxController {
       }
       try {
         await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
-      } catch (_) {
-        // Ignore and let the timer try again later.
-      }
+      } catch (_) {}
     } else {
       final id = deviceInfo2.remoteId.str;
       if (id == 'str' || devices.item2.isConnected) {
@@ -551,9 +576,7 @@ class BleController extends GetxController {
       }
       try {
         await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
-      } catch (_) {
-        // Ignore and let the timer try again later.
-      }
+      } catch (_) {}
     }
   }
 

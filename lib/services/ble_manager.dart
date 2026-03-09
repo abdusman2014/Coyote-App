@@ -1,3 +1,4 @@
+
 // lib/ble_manager.dart
 import 'dart:async';
 import 'dart:convert';
@@ -15,6 +16,11 @@ class BleManager {
   BluetoothCharacteristic? _rxChar; // Send to nRF
   bool _manualDisconnect = false;
 
+  // ── Fixed: track notification subscription so it can be cancelled ─────────
+  StreamSubscription? _notificationSubscription;
+  StreamSubscription? _connectionStateSubscription;
+  // ──────────────────────────────────────────────────────────────────────────
+
   final StreamController<String> _messageController =
       StreamController<String>.broadcast();
 
@@ -29,7 +35,7 @@ class BleManager {
 
   Stream<List<ScanResult>> startScan({Duration timeout = const Duration(seconds: 10)}) {
     FlutterBluePlus.startScan(
-      withServices: [Guid(NUS_SERVICE_UUID)], // filter for Nordic devices
+      withServices: [Guid(NUS_SERVICE_UUID)],
       timeout: timeout,
     );
     return FlutterBluePlus.scanResults;
@@ -44,8 +50,9 @@ class BleManager {
 
     await device.connect(license: License.free);
 
-    // Listen for disconnection
-    device.connectionState.listen((state) {
+    // ── Fixed: cancel old connection state subscription before new one ─────
+    await _connectionStateSubscription?.cancel();
+    _connectionStateSubscription = device.connectionState.listen((state) {
       if (state == BluetoothConnectionState.disconnected) {
         _device = null;
         _txChar = null;
@@ -55,12 +62,19 @@ class BleManager {
         }
       }
     });
+    // ────────────────────────────────────────────────────────────────────────
 
     await _discoverServices();
   }
 
   Future<void> disconnect() async {
     _manualDisconnect = true;
+    // ── Fixed: cancel subscriptions before disconnecting ──────────────────
+    await _notificationSubscription?.cancel();
+    _notificationSubscription = null;
+    await _connectionStateSubscription?.cancel();
+    _connectionStateSubscription = null;
+    // ────────────────────────────────────────────────────────────────────────
     await _device?.disconnect();
     _manualDisconnect = false;
     _device = null;
@@ -71,6 +85,12 @@ class BleManager {
   /// Clears connection state without disconnecting or invoking onDisconnected.
   /// Use when Bluetooth adapter is turned off and all connections are lost.
   void clearConnection() {
+    // ── Fixed: cancel subscriptions on clear ──────────────────────────────
+    _notificationSubscription?.cancel();
+    _notificationSubscription = null;
+    _connectionStateSubscription?.cancel();
+    _connectionStateSubscription = null;
+    // ────────────────────────────────────────────────────────────────────────
     _device = null;
     _txChar = null;
     _rxChar = null;
@@ -90,7 +110,7 @@ class BleManager {
 
           if (uuid == NUS_TX_CHAR_UUID) {
             _txChar = char;
-            await _subscribeToNotifications(); // Start receiving messages
+            await _subscribeToNotifications();
           }
 
           if (uuid == NUS_RX_CHAR_UUID) {
@@ -108,12 +128,18 @@ class BleManager {
 
     await _txChar!.setNotifyValue(true);
 
-    _txChar!.lastValueStream.listen((value) {
+    // ── Fixed: cancel previous subscription before creating a new one ──────
+    // Also switched from lastValueStream (global/shared by UUID across all
+    // devices) to onValueReceived (scoped to this specific characteristic
+    // instance). This prevents left/right device data from mixing together.
+    await _notificationSubscription?.cancel();
+    _notificationSubscription = _txChar!.onValueReceived.listen((value) {
       if (value.isNotEmpty) {
         String message = utf8.decode(value);
         _messageController.add(message);
       }
     });
+    // ────────────────────────────────────────────────────────────────────────
   }
 
   // ─── Send Messages (App → nRF) ────────────────────────────────────────
@@ -137,6 +163,8 @@ class BleManager {
   }
 
   void dispose() {
+    _notificationSubscription?.cancel();
+    _connectionStateSubscription?.cancel();
     _messageController.close();
   }
 }
