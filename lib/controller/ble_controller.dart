@@ -650,6 +650,7 @@
 import 'dart:async';
 import 'package:coyote_app/services/ble_manager.dart';
 import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+import 'package:flutter/widgets.dart';
 import 'package:get/get.dart';
 import 'package:get_storage/get_storage.dart';
 import 'package:tuple/tuple.dart';
@@ -676,7 +677,7 @@ class Battery {
   }
 }
 
-class BleController extends GetxController {
+class BleController extends GetxController with WidgetsBindingObserver {
   late final Tuple2<BleManager, BleManager> devices;
   final GetStorage _box = GetStorage();
   bool isReconnecting = false;
@@ -746,6 +747,7 @@ class BleController extends GetxController {
   void onInit() {
     super.onInit();
 
+    WidgetsBinding.instance.addObserver(this);
     _restoreState();
     FlutterBluePlus.adapterState.listen((state) {
       if (state == BluetoothAdapterState.off) {
@@ -755,6 +757,22 @@ class BleController extends GetxController {
       }
     });
     _autoReconnect();
+  }
+
+  @override
+  void onClose() {
+    WidgetsBinding.instance.removeObserver(this);
+    super.onClose();
+  }
+
+  @override
+  void didChangeAppLifecycleState(AppLifecycleState state) {
+    if (state == AppLifecycleState.resumed) {
+      // App was backgrounded/closed and is now active again.
+      // Show disconnected state immediately (isConnected == false),
+      // and keep retrying reconnection in the background.
+      _autoReconnect();
+    }
   }
 
   void _handleBluetoothOff() {
@@ -808,12 +826,36 @@ class BleController extends GetxController {
       if (rightId != 'str' && !devices.item2.isConnected) {
         await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
       }
-    } catch (_) {
+    } catch (err) {
       // Ignore auto-reconnect errors; user can connect manually.
-    } finally {
-      isReconnecting = false;
-      update();
+      print("error initial");
     }
+    isReconnecting = false;
+    _ensureReconnectLoops();
+    update();
+    // finally {
+    //   // await Future.delayed(Duration(seconds: 10));
+    //   isReconnecting = false;
+    //   _ensureReconnectLoops();
+    //   update();
+    // }
+  }
+
+  /// Ensures background reconnect loops are running for any known device ids
+  /// that are currently disconnected. This keeps retrying while the app is open.
+  void _ensureReconnectLoops() {
+    final leftId = deviceInfo1.remoteId.str;
+    final rightId = deviceInfo2.remoteId.str;
+
+    if (leftId != 'str' && !devices.item1.isConnected) {
+      _startReconnectLoop(DeviceSide.left);
+    }
+    if (rightId != 'str' && !devices.item2.isConnected) {
+      _startReconnectLoop(DeviceSide.right);
+    }
+
+    if (devices.item1.isConnected) _stopReconnectLoop(DeviceSide.left);
+    if (devices.item2.isConnected) _stopReconnectLoop(DeviceSide.right);
   }
 
   Future<void> connect({
@@ -826,18 +868,21 @@ class BleController extends GetxController {
         if (device.advName != "") {
           deviceInfoName1 = device.advName;
         }
-        await devices.item1.connect(device);
+        // try {
+          await devices.item1.connect(device);
+          // ── Fixed: cancel old subscription before attaching a new one ──────
+          _leftSubscription?.cancel();
+          _leftSubscription = devices.item1.messageStream.listen((msg) {
+            print(msg);
+            splitData(msg, DeviceSide.left);
+          });
+          // ───────────────────────────────────────────────────────────────────
 
-        // ── Fixed: cancel old subscription before attaching a new one ──────
-        _leftSubscription?.cancel();
-        _leftSubscription = devices.item1.messageStream.listen((msg) {
-          print(msg);
-          splitData(msg, DeviceSide.left);
-        });
-        // ───────────────────────────────────────────────────────────────────
-
-        await sendInitalMessages(DeviceSide.left);
-        startFiveSecondTimerLeft();
+          await sendInitalMessages(DeviceSide.left);
+          startFiveSecondTimerLeft();
+        // } catch (err) {
+        //   print("error Connect controller");
+        // }
       }
     } else {
       if (!devices.item2.isConnected) {
@@ -845,18 +890,20 @@ class BleController extends GetxController {
         if (device.advName != "") {
           deviceInfoName2 = device.advName;
         }
-        await devices.item2.connect(device);
+        try {
+          await devices.item2.connect(device);
 
-        // ── Fixed: cancel old subscription before attaching a new one ──────
-        _rightSubscription?.cancel();
-        _rightSubscription = devices.item2.messageStream.listen((msg) {
-          print(msg);
-          splitData(msg, DeviceSide.right);
-        });
-        // ───────────────────────────────────────────────────────────────────
+          // ── Fixed: cancel old subscription before attaching a new one ──────
+          _rightSubscription?.cancel();
+          _rightSubscription = devices.item2.messageStream.listen((msg) {
+            print(msg);
+            splitData(msg, DeviceSide.right);
+          });
+          // ───────────────────────────────────────────────────────────────────
 
-        await sendInitalMessages(DeviceSide.right);
-        startFiveSecondTimerRight();
+          await sendInitalMessages(DeviceSide.right);
+          startFiveSecondTimerRight();
+        } catch (err) {}
       }
     }
 
@@ -870,7 +917,7 @@ class BleController extends GetxController {
       _timerLeft?.cancel();
       _timerLeft = null;
       // ── Fixed: cancel subscription on disconnect ──────────────────────
-    await  _leftSubscription?.cancel();
+      await _leftSubscription?.cancel();
       _leftSubscription = null;
       // ───────────────────────────────────────────────────────────────────
       if (devices.item1.isConnected) {
@@ -887,7 +934,7 @@ class BleController extends GetxController {
       _timerRight?.cancel();
       _timerRight = null;
       // ── Fixed: cancel subscription on disconnect ──────────────────────
-     await _rightSubscription?.cancel();
+      await _rightSubscription?.cancel();
       _rightSubscription = null;
       // ───────────────────────────────────────────────────────────────────
       if (devices.item2.isConnected) {
@@ -940,13 +987,19 @@ class BleController extends GetxController {
 
   Future<void> sendInitalMessages(DeviceSide device) async {
     if (device == DeviceSide.left) {
-      devices.item1.sendMessage("7");
-      devices.item1.sendMessage("4");
-      devices.item1.sendMessage("6");
+      sendMessage(message: "7", deviceSide: DeviceSide.left);
+      sendMessage(message: "4", deviceSide: DeviceSide.left);
+      sendMessage(message: "6", deviceSide: DeviceSide.left);
+      // devices.item1.sendMessage("7");
+      // devices.item1.sendMessage("4");
+      // devices.item1.sendMessage("6");
     } else {
-      devices.item2.sendMessage("7");
-      devices.item2.sendMessage("4");
-      devices.item2.sendMessage("6");
+      sendMessage(message: "7", deviceSide: DeviceSide.right);
+      sendMessage(message: "4", deviceSide: DeviceSide.right);
+      sendMessage(message: "6", deviceSide: DeviceSide.right);
+      // devices.item2.sendMessage("7");
+      // devices.item2.sendMessage("4");
+      // devices.item2.sendMessage("6");
     }
   }
 

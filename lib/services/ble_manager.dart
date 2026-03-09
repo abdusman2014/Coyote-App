@@ -327,7 +327,9 @@ class BleManager {
 
   // ─── Scan ────────────────────────────────────────────────────────────────
 
-  Stream<List<ScanResult>> startScan({Duration timeout = const Duration(seconds: 10)}) {
+  Stream<List<ScanResult>> startScan({
+    Duration timeout = const Duration(seconds: 10),
+  }) {
     FlutterBluePlus.startScan(
       withServices: [Guid(NUS_SERVICE_UUID)],
       timeout: timeout,
@@ -340,9 +342,14 @@ class BleManager {
   // ─── Connect ─────────────────────────────────────────────────────────────
 
   Future<void> connect(BluetoothDevice device) async {
-    _device = device;
-
-    await device.connect(license: License.free);
+    
+    // try {
+      await device.connect(license: License.free);
+      _device = device;
+    // } catch (err) {
+    //   _device = null;
+    //   print("error connect manager");
+    // }
 
     // ── Fixed: cancel old connection state subscription before new one ─────
     await _connectionStateSubscription?.cancel();
