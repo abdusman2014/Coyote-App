@@ -145,14 +145,7 @@ class _ControlScreenState extends State<ControlScreen> {
                                       ? DeviceSide.left
                                       : DeviceSide.right,
                                 ),
-                            onPress: () {
-                              _bleController.ApplyPreset(
-                                deviceSide: _sideIndex == 0
-                                    ? DeviceSide.left
-                                    : DeviceSide.right,
-                                preset: Presets.sit,
-                              );
-                            },
+                            onPress: () => _onPresetPressed(Presets.sit),
                           ),
                           ActionWidget(
                             imageUri:
@@ -182,14 +175,7 @@ class _ControlScreenState extends State<ControlScreen> {
                                       ? DeviceSide.left
                                       : DeviceSide.right,
                                 ),
-                            onPress: () {
-                              _bleController.ApplyPreset(
-                                deviceSide: _sideIndex == 0
-                                    ? DeviceSide.left
-                                    : DeviceSide.right,
-                                preset: Presets.walk,
-                              );
-                            },
+                            onPress: () => _onPresetPressed(Presets.walk),
                           ),
                           ActionWidget(
                             imageUri:
@@ -219,14 +205,7 @@ class _ControlScreenState extends State<ControlScreen> {
                                       ? DeviceSide.left
                                       : DeviceSide.right,
                                 ),
-                            onPress: () {
-                              _bleController.ApplyPreset(
-                                deviceSide: _sideIndex == 0
-                                    ? DeviceSide.left
-                                    : DeviceSide.right,
-                                preset: Presets.run,
-                              );
-                            },
+                            onPress: () => _onPresetPressed(Presets.run),
                           ),
                         ],
                       ),
@@ -362,17 +341,26 @@ class _ControlScreenState extends State<ControlScreen> {
     // TODO: Open Bluetooth settings or status
   }
 
-  void _onBatteryTap() async {
-    // TODO: Open battery details
-    if (_bleController.isConnected(
-      deviceSide: _sideIndex == 0 ? DeviceSide.left : DeviceSide.right,
-    )) {
-      await _bleController.sendMessage(
-        deviceSide: _sideIndex == 0 ? DeviceSide.left : DeviceSide.right,
-        message: "7",
-      );
-      _showInfoDialog(context);
+  void _onPresetPressed(Presets preset) {
+    final side = _sideIndex == 0 ? DeviceSide.left : DeviceSide.right;
+    if (!_bleController.isConnected(deviceSide: side)) {
+      _showDisconnectedSnackBar(context);
+      return;
     }
+    _bleController.ApplyPreset(deviceSide: side, preset: preset);
+  }
+
+  void _onBatteryTap() async {
+    final side = _sideIndex == 0 ? DeviceSide.left : DeviceSide.right;
+
+    if (!_bleController.isConnected(deviceSide: side)) {
+      _showDisconnectedSnackBar(context);
+      return;
+    }
+
+    await _bleController.sendMessage(deviceSide: side, message: "7");
+    if (!context.mounted) return;
+    _showInfoDialog(context);
   }
 
   void _showInfoDialog(BuildContext context) {
@@ -409,9 +397,27 @@ class _ControlScreenState extends State<ControlScreen> {
 
   void _onTurnOff() async {
     final side = _sideIndex == 0 ? DeviceSide.left : DeviceSide.right;
+
+    if (!_bleController.isConnected(deviceSide: side)) {
+      _showDisconnectedSnackBar(context);
+      return;
+    }
+
     await _bleController.sendMessage(
       message: _bleController.getPumpStatus(side) == 1 ? "2" : "1",
       deviceSide: side,
+    );
+  }
+
+  void _showDisconnectedSnackBar(BuildContext context) {
+    if (!context.mounted) return;
+    ScaffoldMessenger.of(context).showSnackBar(
+      const SnackBar(
+        content: Text(
+          'Device disconnected. Connect your device from the Pair screen.',
+        ),
+        behavior: SnackBarBehavior.floating,
+      ),
     );
   }
 }

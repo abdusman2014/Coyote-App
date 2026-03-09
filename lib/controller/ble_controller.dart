@@ -61,8 +61,23 @@ class BleController extends GetxController {
       side == DeviceSide.left ? currentPressure1 : currentPressure2;
   int getTargetPressure(DeviceSide side) =>
       side == DeviceSide.left ? targetPressure1 : targetPressure2;
-  int getPumpStatus(DeviceSide side) =>
-      side == DeviceSide.left ? pumpStatus1 : pumpStatus2;
+  int getPumpStatus(DeviceSide side) {
+    if (side == DeviceSide.left) {
+      if (devices.item1.isConnected) {
+        return pumpStatus1;
+      } else {
+        return 0;
+      }
+    } else {
+      if (devices.item2.isConnected) {
+        return pumpStatus2;
+      } else {
+        return 0;
+      }
+    }
+    // return side == DeviceSide.left ? pumpStatus1 : pumpStatus2;
+  }
+
   Presets getSelectedPreset(DeviceSide side) =>
       side == DeviceSide.left ? selectedPreset1 : selectedPreset2;
 
@@ -190,10 +205,13 @@ class BleController extends GetxController {
   }
 
   Future<void> disconnect(DeviceSide deviceSide) async {
+    devices.item1.isConnected;
     if (deviceSide == DeviceSide.left) {
       _timerLeft?.cancel();
       _timerLeft = null;
-      await devices.item1.disconnect();
+      if (devices.item1.isConnected) {
+        await devices.item1.disconnect();
+      }
       deviceInfo1 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
       deviceInfoName1 = "";
       batteryInfo1 = Battery();
@@ -204,7 +222,9 @@ class BleController extends GetxController {
     } else {
       _timerRight?.cancel();
       _timerRight = null;
-      await devices.item2.disconnect();
+      if (devices.item2.isConnected) {
+        await devices.item2.disconnect();
+      }
       deviceInfo2 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
       deviceInfoName2 = "";
       batteryInfo2 = Battery();
@@ -265,7 +285,9 @@ class BleController extends GetxController {
 
   void startFiveSecondTimerLeft() {
     _timerLeft = Timer.periodic(Duration(seconds: 5), (timer) {
-      sendCommands(DeviceSide.left);
+      if (devices.item1.isConnected) {
+        sendCommands(DeviceSide.left);
+      }
     });
   }
 
@@ -273,7 +295,9 @@ class BleController extends GetxController {
 
   void startFiveSecondTimerRight() {
     _timerRight = Timer.periodic(const Duration(seconds: 5), (timer) {
-      sendCommands(DeviceSide.right);
+      if (devices.item2.isConnected) {
+        sendCommands(DeviceSide.right);
+      }
     });
   }
 
@@ -289,11 +313,21 @@ class BleController extends GetxController {
   }) async {
     if (deviceSide == DeviceSide.left) {
       if (devices.item1.isConnected) {
-        devices.item1.sendMessage(message);
+        try {
+          await devices.item1.sendMessage(message);
+        } catch (e) {
+          // show a snackbar, log it, etc.
+          print("Send error: $e");
+        }
       }
     } else {
       if (devices.item2.isConnected) {
-        devices.item2.sendMessage(message);
+        try {
+          await devices.item2.sendMessage(message);
+        } catch (e) {
+          // show a snackbar, log it, etc.
+          print("Send error: $e");
+        }
       }
     }
   }
