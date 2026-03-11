@@ -59,7 +59,7 @@ class _MainShellState extends State<MainShell> {
   Widget build(BuildContext context) {
     return GetBuilder<BleController>(
       builder: (ble) {
-        final isLoading = ble.isReconnecting;
+        // final isLoading = ble.isReconnecting;
         return Stack(
           children: [
             Scaffold(
@@ -77,11 +77,11 @@ class _MainShellState extends State<MainShell> {
                 ],
               ),
             ),
-            if (isLoading)
-              Container(
-                color: Colors.black.withOpacity(0.5),
-                child: const Center(child: CircularProgressIndicator()),
-              ),
+            // if (isLoading)
+            //   Container(
+            //     color: Colors.black.withOpacity(0.5),
+            //     child: const Center(child: CircularProgressIndicator()),
+            //   ),
           ],
         );
       },
