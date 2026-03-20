@@ -1,3 +1,5 @@
+
+
 // import 'dart:math' as math;
 // import 'package:flutter/material.dart';
 
@@ -107,7 +109,7 @@
 //           painter: VacuumGaugePainter(
 //             minValue: widget.minValue,
 //             maxValue: widget.maxValue,
-//             currentValue: _animatedCurrentValue, // uses animated value
+//             currentValue: _animatedCurrentValue,
 //             targetValue: _targetValue,
 //           ),
 //         ),
@@ -125,15 +127,38 @@
 //     // Normalize to 0-2π
 //     if (angle < 0) angle += 2 * math.pi;
 
-//     final startAngle = 3 * math.pi / 4;
-//     final totalSweep = 3 * math.pi / 2;
+//     final startAngle = 3 * math.pi / 4; // 135°
+//     final totalSweep = 3 * math.pi / 2; // 270°
+//     final endAngle = startAngle + totalSweep; // 405° = 45° normalized
 
 //     double relativeAngle = angle - startAngle;
 //     if (relativeAngle < 0) relativeAngle += 2 * math.pi;
 
-//     // Clamp to arc range for smooth edges
-//     final clampedAngle = relativeAngle.clamp(0.0, totalSweep);
-//     final progress = clampedAngle / totalSweep;
+//     // If angle falls in the dead zone (the 90° gap at the bottom),
+//     // snap to whichever end of the arc is closer.
+//     if (relativeAngle > totalSweep) {
+//       // Dead zone spans from endAngle to startAngle (going forward).
+//       // Midpoint of dead zone is directly downward (270° = 3π/2).
+//       final deadZoneMid = endAngle + (2 * math.pi - totalSweep) / 2;
+//       double midRelative = deadZoneMid - startAngle;
+//       if (midRelative < 0) midRelative += 2 * math.pi;
+
+//       // If we're in the first half of the dead zone → snap to max,
+//       // second half → snap to min.
+//       if (relativeAngle < midRelative) {
+//         setState(() {
+//           _targetValue = widget.maxValue;
+//         });
+//       } else {
+//         setState(() {
+//           _targetValue = widget.minValue;
+//         });
+//       }
+//       widget.onChanged?.call(_targetValue);
+//       return;
+//     }
+
+//     final progress = relativeAngle / totalSweep;
 //     final newValue =
 //         widget.minValue + (widget.maxValue - widget.minValue) * progress;
 
@@ -442,7 +467,7 @@
 
 //     final currentTextPainter = TextPainter(
 //       text: TextSpan(
-//         text: currentValue.toStringAsFixed(1),
+//         text: currentValue.toStringAsFixed(0),
 //         style: const TextStyle(
 //           color: Colors.white,
 //           fontSize: 36,
@@ -592,6 +617,7 @@
 //   }
 // }
 
+
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -684,33 +710,40 @@ class _VacuumGaugeSliderState extends State<VacuumGaugeSlider>
 
   @override
   Widget build(BuildContext context) {
-    return Container(
-      width: 300,
-      height: 300,
-      child: GestureDetector(
-        onPanUpdate: (details) {
-          _updateTargetFromTouch(details.localPosition);
-        },
-        onPanDown: (details) {
-          _updateTargetFromTouch(details.localPosition);
-        },
-        onPanEnd: (details) {
-          widget.onChanged?.call(_targetValue);
-        },
-        child: CustomPaint(
-          painter: VacuumGaugePainter(
-            minValue: widget.minValue,
-            maxValue: widget.maxValue,
-            currentValue: _animatedCurrentValue,
-            targetValue: _targetValue,
+    return LayoutBuilder(
+      builder: (context, constraints) {
+        final size = constraints.biggest.shortestSide.clamp(0.0, 300.0);
+        return SizedBox(
+          width: size,
+          height: size,
+          child: GestureDetector(
+            onPanUpdate: (details) {
+              _updateTargetFromTouch(details.localPosition, size);
+            },
+            onPanDown: (details) {
+              _updateTargetFromTouch(details.localPosition, size);
+            },
+            onPanEnd: (details) {
+              widget.onChanged?.call(_targetValue);
+            },
+            child: CustomPaint(
+              size: Size(size, size),
+              painter: VacuumGaugePainter(
+                minValue: widget.minValue,
+                maxValue: widget.maxValue,
+                currentValue: _animatedCurrentValue,
+                targetValue: _targetValue,
+              ),
+            ),
           ),
-        ),
-      ),
+        );
+      },
     );
   }
 
-  void _updateTargetFromTouch(Offset position) {
-    final center = Offset(150, 150);
+  void _updateTargetFromTouch(Offset position, double size) {
+    final half = size / 2;
+    final center = Offset(half, half);
     final dx = position.dx - center.dx;
     final dy = position.dy - center.dy;
 
