@@ -1,3 +1,722 @@
+// // // // // // import 'dart:async';
+// // // // // // import 'package:coyote_app/services/ble_manager.dart';
+// // // // // // import 'package:flutter_blue_plus/flutter_blue_plus.dart';
+// // // // // // import 'package:flutter/widgets.dart';
+// // // // // // import 'package:get/get.dart';
+// // // // // // import 'package:get_storage/get_storage.dart';
+// // // // // // import 'package:tuple/tuple.dart';
+
+// // // // // // class Battery {
+// // // // // //   int chargingStatus = 10;
+// // // // // //   double batteryPercentage = 10;
+// // // // // //   double batteryVoltage = 10;
+// // // // // //   double currentCycle = 10;
+
+// // // // // //   Battery.fromString(String data) {
+// // // // // //     List<String> parts = data.split(':');
+
+// // // // // //     chargingStatus = int.parse(parts[1]);
+// // // // // //     batteryPercentage = double.parse(parts[2]);
+// // // // // //     batteryVoltage = double.parse(parts[3]);
+// // // // // //     currentCycle = double.parse(parts[4]);
+// // // // // //   }
+// // // // // //   Battery() {
+// // // // // //     chargingStatus = 20;
+// // // // // //     batteryPercentage = 20;
+// // // // // //     batteryVoltage = 20;
+// // // // // //     currentCycle = 20;
+// // // // // //   }
+// // // // // // }
+
+// // // // // // class BleController extends GetxController with WidgetsBindingObserver {
+// // // // // //   late final Tuple2<BleManager, BleManager> devices;
+// // // // // //   final GetStorage _box = GetStorage();
+// // // // // //   bool isReconnecting = false;
+// // // // // //   Timer? _leftReconnectTimer;
+// // // // // //   Timer? _rightReconnectTimer;
+
+// // // // // //   // ── Fixed: one subscription per side to prevent ghost listeners ──────────
+// // // // // //   StreamSubscription? _leftSubscription;
+// // // // // //   StreamSubscription? _rightSubscription;
+// // // // // //   // ─────────────────────────────────────────────────────────────────────────
+
+// // // // // //   BluetoothDevice deviceInfo1 = BluetoothDevice(
+// // // // // //     remoteId: DeviceIdentifier("str"),
+// // // // // //   );
+// // // // // //   BluetoothDevice deviceInfo2 = BluetoothDevice(
+// // // // // //     remoteId: DeviceIdentifier("str"),
+// // // // // //   );
+// // // // // //   String deviceInfoName1 = "";
+// // // // // //   String deviceInfoName2 = "";
+// // // // // //   // Per-device state (left = 1, right = 2)
+// // // // // //   Battery batteryInfo1 = Battery();
+// // // // // //   Battery batteryInfo2 = Battery();
+// // // // // //   int currentPressure1 = 0;
+// // // // // //   int currentPressure2 = 0;
+// // // // // //   int targetPressure1 = 0;
+// // // // // //   int targetPressure2 = 0;
+// // // // // //   int pumpStatus1 = 0;
+// // // // // //   int pumpStatus2 = 0;
+// // // // // //   Presets selectedPreset1 = Presets.non;
+// // // // // //   Presets selectedPreset2 = Presets.non;
+// // // // // //   Map<String, int> preSets = {"sit": 8, "walk": 10, "run": 20};
+// // // // // //   List<ScanResult> scanResults = [];
+
+// // // // // //   Battery getBatteryInfo(DeviceSide side) =>
+// // // // // //       side == DeviceSide.left ? batteryInfo1 : batteryInfo2;
+// // // // // //   int getCurrentPressure(DeviceSide side) =>
+// // // // // //       side == DeviceSide.left ? currentPressure1 : currentPressure2;
+// // // // // //   int getTargetPressure(DeviceSide side) =>
+// // // // // //       side == DeviceSide.left ? targetPressure1 : targetPressure2;
+// // // // // //   int getPumpStatus(DeviceSide side) {
+// // // // // //     if (side == DeviceSide.left) {
+// // // // // //       if (devices.item1.isConnected) {
+// // // // // //         return pumpStatus1;
+// // // // // //       } else {
+// // // // // //         return 0;
+// // // // // //       }
+// // // // // //     } else {
+// // // // // //       if (devices.item2.isConnected) {
+// // // // // //         return pumpStatus2;
+// // // // // //       } else {
+// // // // // //         return 0;
+// // // // // //       }
+// // // // // //     }
+// // // // // //   }
+
+// // // // // //   Presets getSelectedPreset(DeviceSide side) =>
+// // // // // //       side == DeviceSide.left ? selectedPreset1 : selectedPreset2;
+
+// // // // // //   BleController() {
+// // // // // //     devices = Tuple2(
+// // // // // //       BleManager(onDisconnected: () => _handleDisconnected(DeviceSide.left)),
+// // // // // //       BleManager(onDisconnected: () => _handleDisconnected(DeviceSide.right)),
+// // // // // //     );
+// // // // // //   }
+
+// // // // // //   @override
+// // // // // //   void onInit() {
+// // // // // //     super.onInit();
+
+// // // // // //     WidgetsBinding.instance.addObserver(this);
+// // // // // //     _restoreState();
+// // // // // //     FlutterBluePlus.adapterState.listen((state) {
+// // // // // //       if (state == BluetoothAdapterState.off) {
+// // // // // //         _handleBluetoothOff();
+// // // // // //       } else if (state == BluetoothAdapterState.on) {
+// // // // // //         _autoReconnect();
+// // // // // //       }
+// // // // // //     });
+// // // // // //     _autoReconnect();
+// // // // // //   }
+
+// // // // // //   @override
+// // // // // //   void onClose() {
+// // // // // //     WidgetsBinding.instance.removeObserver(this);
+// // // // // //     super.onClose();
+// // // // // //   }
+
+// // // // // //   @override
+// // // // // //   void didChangeAppLifecycleState(AppLifecycleState state) {
+// // // // // //     if (state == AppLifecycleState.resumed) {
+// // // // // //       // App was backgrounded/closed and is now active again.
+// // // // // //       // Show disconnected state immediately (isConnected == false),
+// // // // // //       // and keep retrying reconnection in the background.
+// // // // // //       _autoReconnect();
+// // // // // //     }
+// // // // // //   }
+
+// // // // // //   void _handleBluetoothOff() {
+// // // // // //     // ── Fixed: cancel subscriptions before clearing ────────────────────────
+// // // // // //     _leftSubscription?.cancel();
+// // // // // //     _leftSubscription = null;
+// // // // // //     _rightSubscription?.cancel();
+// // // // // //     _rightSubscription = null;
+// // // // // //     // ─────────────────────────────────────────────────────────────────────────
+
+// // // // // //     devices.item1.clearConnection();
+// // // // // //     devices.item2.clearConnection();
+// // // // // //     deviceInfo1 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
+// // // // // //     deviceInfo2 = BluetoothDevice(remoteId: const DeviceIdentifier('str'));
+// // // // // //     batteryInfo1 = Battery();
+// // // // // //     batteryInfo2 = Battery();
+// // // // // //     currentPressure1 = 0;
+// // // // // //     currentPressure2 = 0;
+// // // // // //     targetPressure1 = 0;
+// // // // // //     targetPressure2 = 0;
+// // // // // //     pumpStatus1 = 0;
+// // // // // //     pumpStatus2 = 0;
+// // // // // //     selectedPreset1 = Presets.non;
+// // // // // //     selectedPreset2 = Presets.non;
+// // // // // //     scanResults = [];
+// // // // // //     isReconnecting = false;
+// // // // // //     _stopReconnectLoop(DeviceSide.left);
+// // // // // //     _stopReconnectLoop(DeviceSide.right);
+// // // // // //     _saveState();
+// // // // // //     update();
+// // // // // //   }
+
+// // // // // //   Future<void> _autoReconnect() async {
+// // // // // //     if (isReconnecting) return;
+
+// // // // // //     final state = await FlutterBluePlus.adapterState.first;
+// // // // // //     if (state != BluetoothAdapterState.on) return;
+
+// // // // // //     final leftId = deviceInfo1.remoteId.str;
+// // // // // //     final rightId = deviceInfo2.remoteId.str;
+
+// // // // // //     if (leftId == 'str' && rightId == 'str') return;
+
+// // // // // //     // isReconnecting = true;
+// // // // // //     // update();
+
+// // // // // //     try {
+// // // // // //       if (leftId != 'str' && !devices.item1.isConnected) {
+// // // // // //         await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
+// // // // // //       }
+// // // // // //       if (rightId != 'str' && !devices.item2.isConnected) {
+// // // // // //         await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
+// // // // // //       }
+// // // // // //     } catch (err) {
+// // // // // //       // Ignore auto-reconnect errors; user can connect manually.
+// // // // // //       isReconnecting = false;
+// // // // // //       _ensureReconnectLoops();
+// // // // // //       update();
+// // // // // //       print("error initial");
+// // // // // //     }
+// // // // // //     isReconnecting = false;
+// // // // // //     _ensureReconnectLoops();
+// // // // // //     update();
+// // // // // //     // finally {
+// // // // // //     //   // await Future.delayed(Duration(seconds: 10));
+// // // // // //     //   isReconnecting = false;
+// // // // // //     //   _ensureReconnectLoops();
+// // // // // //     //   update();
+// // // // // //     // }
+// // // // // //   }
+
+// // // // // //   /// Ensures background reconnect loops are running for any known device ids
+// // // // // //   /// that are currently disconnected. This keeps retrying while the app is open.
+// // // // // //   void _ensureReconnectLoops() {
+// // // // // //     final leftId = deviceInfo1.remoteId.str;
+// // // // // //     final rightId = deviceInfo2.remoteId.str;
+
+// // // // // //     if (leftId != 'str' && !devices.item1.isConnected) {
+// // // // // //       _startReconnectLoop(DeviceSide.left);
+// // // // // //     }
+// // // // // //     if (rightId != 'str' && !devices.item2.isConnected) {
+// // // // // //       _startReconnectLoop(DeviceSide.right);
+// // // // // //     }
+
+// // // // // //     if (devices.item1.isConnected) _stopReconnectLoop(DeviceSide.left);
+// // // // // //     if (devices.item2.isConnected) _stopReconnectLoop(DeviceSide.right);
+// // // // // //   }
+
+// // // // // //   Future<void> connect({
+// // // // // //     required BluetoothDevice device,
+// // // // // //     required DeviceSide deviceSide,
+// // // // // //   }) async {
+// // // // // //     if (deviceSide == DeviceSide.left) {
+// // // // // //       if (!devices.item1.isConnected) {
+// // // // // //         deviceInfo1 = device;
+// // // // // //         if (device.advName != "") {
+// // // // // //           deviceInfoName1 = device.advName;
+// // // // // //         }
+// // // // // //         // try {
+// // // // // //         await devices.item1.connect(device);
+// // // // // //         // ── Fixed: cancel old subscription before attaching a new one ──────
+// // // // // //         _leftSubscription?.cancel();
+// // // // // //         _leftSubscription = devices.item1.messageStream.listen((msg) {
+// // // // // //           print(msg);
+// // // // // //           splitData(msg, DeviceSide.left);
+// // // // // //         });
+// // // // // //         // ───────────────────────────────────────────────────────────────────
+
+// // // // // //         await sendInitalMessages(DeviceSide.left);
+// // // // // //         startFiveSecondTimerLeft();
+// // // // // //         // } catch (err) {
+// // // // // //         //   print("error Connect controller");
+// // // // // //         // }
+// // // // // //       }
+// // // // // //     } else {
+// // // // // //       if (!devices.item2.isConnected) {
+// // // // // //         deviceInfo2 = device;
+// // // // // //         if (device.advName != "") {
+// // // // // //           deviceInfoName2 = device.advName;
+// // // // // //         }
+// // // // // //         // try {
+// // // // // //         await devices.item2.connect(device);
+
+// // // // // //         // ── Fixed: cancel old subscription before attaching a new one ──────
+// // // // // //         _rightSubscription?.cancel();
+// // // // // //         _rightSubscription = devices.item2.messageStream.listen((msg) {
+// // // // // //           print(msg);
+// // // // // //           splitData(msg, DeviceSide.right);
+// // // // // //         });
+// // // // // //         // ───────────────────────────────────────────────────────────────────
+
+// // // // // //         await sendInitalMessages(DeviceSide.right);
+// // // // // //         startFiveSecondTimerRight();
+// // // // // //         // } catch (err) {}
+// // // // // //       }
+// // // // // //     }
+
+// // // // // //     _stopReconnectLoop(deviceSide);
+// // // // // //     _saveState();
+// // // // // //     update();
+// // // // // //   }
+
+// // // // // //   Future<void> disconnect(DeviceSide deviceSide) async {
+// // // // // //     if (deviceSide == DeviceSide.left) {
+// // // // // //       _timerLeft?.cancel();
+// // // // // //       _timerLeft = null;
+// // // // // //       // ── Fixed: cancel subscription on disconnect ──────────────────────
+// // // // // //       await _leftSubscription?.cancel();
+// // // // // //       _leftSubscription = null;
+// // // // // //       // ───────────────────────────────────────────────────────────────────
+// // // // // //       if (devices.item1.isConnected) {
+// // // // // //         await devices.item1.disconnect();
+// // // // // //       }
+// // // // // //       deviceInfo1 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
+// // // // // //       deviceInfoName1 = "";
+// // // // // //       batteryInfo1 = Battery();
+// // // // // //       currentPressure1 = 0;
+// // // // // //       targetPressure1 = 0;
+// // // // // //       pumpStatus1 = 0;
+// // // // // //       selectedPreset1 = Presets.non;
+// // // // // //     } else {
+// // // // // //       _timerRight?.cancel();
+// // // // // //       _timerRight = null;
+// // // // // //       // ── Fixed: cancel subscription on disconnect ──────────────────────
+// // // // // //       await _rightSubscription?.cancel();
+// // // // // //       _rightSubscription = null;
+// // // // // //       // ───────────────────────────────────────────────────────────────────
+// // // // // //       if (devices.item2.isConnected) {
+// // // // // //         await devices.item2.disconnect();
+// // // // // //       }
+// // // // // //       deviceInfo2 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
+// // // // // //       deviceInfoName2 = "";
+// // // // // //       batteryInfo2 = Battery();
+// // // // // //       currentPressure2 = 0;
+// // // // // //       targetPressure2 = 0;
+// // // // // //       pumpStatus2 = 0;
+// // // // // //       selectedPreset2 = Presets.non;
+// // // // // //     }
+// // // // // //     _stopReconnectLoop(deviceSide);
+// // // // // //     update();
+// // // // // //     _saveState();
+// // // // // //   }
+
+// // // // // //   void splitData(String msg, DeviceSide side) {
+// // // // // //     if (msg.isEmpty) return;
+
+// // // // // //     if (msg[0] == '7') {
+// // // // // //       final battery = Battery.fromString(msg);
+// // // // // //       if (side == DeviceSide.left) {
+// // // // // //         batteryInfo1 = battery;
+// // // // // //       } else {
+// // // // // //         batteryInfo2 = battery;
+// // // // // //       }
+// // // // // //       print(battery);
+// // // // // //     } else if (msg[0] == '4') {
+// // // // // //       final parts = msg.split(':');
+// // // // // //       final value = int.parse(parts[1]) < 0 ? 0 : int.parse(parts[1]);
+// // // // // //       if (side == DeviceSide.left) {
+// // // // // //         currentPressure1 = value;
+// // // // // //       } else {
+// // // // // //         currentPressure2 = value;
+// // // // // //       }
+// // // // // //     } else if (msg[0] == '6' || msg[0] == '1' || msg[0] == '2') {
+// // // // // //       final parts = msg.split(':');
+// // // // // //       final value = int.parse(parts[1]);
+// // // // // //       if (side == DeviceSide.left) {
+// // // // // //         pumpStatus1 = value;
+// // // // // //       } else {
+// // // // // //         pumpStatus2 = value;
+// // // // // //       }
+// // // // // //     }
+// // // // // //     _saveState();
+// // // // // //     update();
+// // // // // //   }
+
+// // // // // //   Future<void> sendInitalMessages(DeviceSide device) async {
+// // // // // //     if (device == DeviceSide.left) {
+// // // // // //       sendMessage(message: "7", deviceSide: DeviceSide.left);
+// // // // // //       sendMessage(message: "4", deviceSide: DeviceSide.left);
+// // // // // //       sendMessage(message: "6", deviceSide: DeviceSide.left);
+// // // // // //       // devices.item1.sendMessage("7");
+// // // // // //       // devices.item1.sendMessage("4");
+// // // // // //       // devices.item1.sendMessage("6");
+// // // // // //     } else {
+// // // // // //       sendMessage(message: "7", deviceSide: DeviceSide.right);
+// // // // // //       sendMessage(message: "4", deviceSide: DeviceSide.right);
+// // // // // //       sendMessage(message: "6", deviceSide: DeviceSide.right);
+// // // // // //       // devices.item2.sendMessage("7");
+// // // // // //       // devices.item2.sendMessage("4");
+// // // // // //       // devices.item2.sendMessage("6");
+// // // // // //     }
+// // // // // //   }
+
+// // // // // //   Timer? _timerLeft;
+
+// // // // // //   void startFiveSecondTimerLeft() {
+// // // // // //     _timerLeft?.cancel();
+// // // // // //     _timerLeft = Timer.periodic(const Duration(seconds: 5), (timer) {
+// // // // // //       if (devices.item1.isConnected) {
+// // // // // //         sendCommands(DeviceSide.left);
+// // // // // //       }
+// // // // // //     });
+// // // // // //   }
+
+// // // // // //   Timer? _timerRight;
+
+// // // // // //   void startFiveSecondTimerRight() {
+// // // // // //     _timerRight?.cancel();
+// // // // // //     _timerRight = Timer.periodic(const Duration(seconds: 5), (timer) {
+// // // // // //       if (devices.item2.isConnected) {
+// // // // // //         sendCommands(DeviceSide.right);
+// // // // // //       }
+// // // // // //     });
+// // // // // //   }
+
+// // // // // //   void sendCommands(DeviceSide deviceSide) {
+// // // // // //     sendMessage(message: "4", deviceSide: deviceSide);
+// // // // // //     sendMessage(message: "6", deviceSide: deviceSide);
+// // // // // //     sendMessage(message: "7", deviceSide: deviceSide);
+// // // // // //   }
+
+// // // // // //   Future<void> sendMessage({
+// // // // // //     required String message,
+// // // // // //     required DeviceSide deviceSide,
+// // // // // //   }) async {
+// // // // // //     if (deviceSide == DeviceSide.left) {
+// // // // // //       if (devices.item1.isConnected) {
+// // // // // //         try {
+// // // // // //           await devices.item1.sendMessage(message);
+// // // // // //         } catch (e) {
+// // // // // //           print("Send error: $e");
+// // // // // //         }
+// // // // // //       }
+// // // // // //     } else {
+// // // // // //       if (devices.item2.isConnected) {
+// // // // // //         try {
+// // // // // //           await devices.item2.sendMessage(message);
+// // // // // //         } catch (e) {
+// // // // // //           print("Send error: $e");
+// // // // // //         }
+// // // // // //       }
+// // // // // //     }
+// // // // // //   }
+
+// // // // // //   Future<void> setGuage({
+// // // // // //     required int pressure,
+// // // // // //     required DeviceSide deviceSide,
+// // // // // //   }) async {
+// // // // // //     if (deviceSide == DeviceSide.left) {
+// // // // // //       targetPressure1 = pressure;
+// // // // // //     } else {
+// // // // // //       targetPressure2 = pressure;
+// // // // // //     }
+// // // // // //     await sendMessage(message: "5:${pressure.toInt()}", deviceSide: deviceSide);
+// // // // // //     _saveState();
+// // // // // //   }
+
+// // // // // //   String getDeviceName(DeviceSide deviceSide) {
+// // // // // //     if (deviceSide == DeviceSide.left) {
+// // // // // //       return deviceInfo1.advName;
+// // // // // //     } else {
+// // // // // //       return deviceInfo2.advName;
+// // // // // //     }
+// // // // // //   }
+
+// // // // // //   Future<void> scan() async {
+// // // // // //     devices.item1.startScan().listen((results) {
+// // // // // //       scanResults = results.where((result) {
+// // // // // //         final name = result.device.advName;
+// // // // // //         return name.startsWith('PUCK_');
+// // // // // //       }).toList();
+// // // // // //       print("scan");
+// // // // // //       print(scanResults);
+// // // // // //       update();
+// // // // // //     });
+// // // // // //   }
+
+// // // // // //   bool isConnected({required DeviceSide deviceSide}) {
+// // // // // //     if (deviceSide == DeviceSide.left) {
+// // // // // //       return devices.item1.isConnected;
+// // // // // //     } else {
+// // // // // //       return devices.item2.isConnected;
+// // // // // //     }
+// // // // // //   }
+
+// // // // // //   bool isDeviceConnected(DeviceSide deviceSide, BluetoothDevice device) {
+// // // // // //     if (!isConnected(deviceSide: deviceSide)) return false;
+// // // // // //     final id = device.remoteId.str;
+// // // // // //     if (deviceSide == DeviceSide.left) {
+// // // // // //       return devices.item1.isConnected && deviceInfo1.remoteId.str == id;
+// // // // // //     } else {
+// // // // // //       return devices.item2.isConnected && deviceInfo2.remoteId.str == id;
+// // // // // //     }
+// // // // // //   }
+
+// // // // // //   void _handleDisconnected(DeviceSide side) {
+// // // // // //     // ── Fixed: cancel subscription for the disconnected side ──────────────
+// // // // // //     if (side == DeviceSide.left) {
+// // // // // //       _leftSubscription?.cancel();
+// // // // // //       _leftSubscription = null;
+// // // // // //       batteryInfo1 = Battery();
+// // // // // //       currentPressure1 = 0;
+// // // // // //       pumpStatus1 = 0;
+// // // // // //       _timerLeft?.cancel();
+// // // // // //       _timerLeft = null;
+// // // // // //     } else {
+// // // // // //       _rightSubscription?.cancel();
+// // // // // //       _rightSubscription = null;
+// // // // // //       batteryInfo2 = Battery();
+// // // // // //       currentPressure2 = 0;
+// // // // // //       pumpStatus2 = 0;
+// // // // // //       _timerRight?.cancel();
+// // // // // //       _timerRight = null;
+// // // // // //     }
+// // // // // //     // ─────────────────────────────────────────────────────────────────────────
+
+// // // // // //     if (!devices.item1.isConnected && !devices.item2.isConnected) {
+// // // // // //       scanResults = [];
+// // // // // //     }
+
+// // // // // //     _startReconnectLoop(side);
+// // // // // //     _saveState();
+// // // // // //     update();
+// // // // // //   }
+
+// // // // // //   void _saveState() {
+// // // // // //     final leftId = deviceInfo1.remoteId.str;
+// // // // // //     final rightId = deviceInfo2.remoteId.str;
+
+// // // // // //     if (leftId != 'str') {
+// // // // // //       _box.write('leftDeviceId', leftId);
+// // // // // //       _box.write('leftDeviceName', deviceInfoName1);
+// // // // // //     } else {
+// // // // // //       _box.remove('leftDeviceId');
+// // // // // //       _box.remove('leftDeviceName');
+// // // // // //     }
+
+// // // // // //     if (rightId != 'str') {
+// // // // // //       _box.write('rightDeviceId', rightId);
+// // // // // //       _box.write('rightDeviceName', deviceInfoName2);
+// // // // // //     } else {
+// // // // // //       _box.remove('rightDeviceId');
+// // // // // //       _box.remove('rightDeviceName');
+// // // // // //     }
+
+// // // // // //     _box.write('batteryChargingStatus1', batteryInfo1.chargingStatus);
+// // // // // //     _box.write('batteryPercentage1', batteryInfo1.batteryPercentage);
+// // // // // //     _box.write('batteryVoltage1', batteryInfo1.batteryVoltage);
+// // // // // //     _box.write('batteryCurrentCycle1', batteryInfo1.currentCycle);
+// // // // // //     _box.write('currentPressure1', currentPressure1);
+// // // // // //     _box.write('targetPressure1', targetPressure1);
+// // // // // //     _box.write('pumpStatus1', pumpStatus1);
+// // // // // //     _box.write('selectedPresetIndex1', selectedPreset1.index);
+
+// // // // // //     _box.write('batteryChargingStatus2', batteryInfo2.chargingStatus);
+// // // // // //     _box.write('batteryPercentage2', batteryInfo2.batteryPercentage);
+// // // // // //     _box.write('batteryVoltage2', batteryInfo2.batteryVoltage);
+// // // // // //     _box.write('batteryCurrentCycle2', batteryInfo2.currentCycle);
+// // // // // //     _box.write('currentPressure2', currentPressure2);
+// // // // // //     _box.write('targetPressure2', targetPressure2);
+// // // // // //     _box.write('pumpStatus2', pumpStatus2);
+// // // // // //     _box.write('selectedPresetIndex2', selectedPreset2.index);
+
+// // // // // //     _box.write('preSets', preSets);
+// // // // // //   }
+
+// // // // // //   void _restoreState() {
+// // // // // //     final String? leftId = _box.read<String>('leftDeviceId');
+// // // // // //     final String? rightId = _box.read<String>('rightDeviceId');
+
+// // // // // //     if (leftId != null) {
+// // // // // //       deviceInfo1 = BluetoothDevice(remoteId: DeviceIdentifier(leftId));
+// // // // // //       deviceInfoName1 = _box.read<String>('leftDeviceName') ?? "str";
+// // // // // //     }
+// // // // // //     if (rightId != null) {
+// // // // // //       deviceInfo2 = BluetoothDevice(remoteId: DeviceIdentifier(rightId));
+// // // // // //       deviceInfoName2 = _box.read<String>('rightDeviceName') ?? "str";
+// // // // // //     }
+
+// // // // // //     // Side 1
+// // // // // //     final int? c1 = _box.read<int>('batteryChargingStatus1');
+// // // // // //     if (c1 != null) {
+// // // // // //       batteryInfo1.chargingStatus = c1;
+// // // // // //       final dynamic p1 = _box.read('batteryPercentage1');
+// // // // // //       final dynamic v1 = _box.read('batteryVoltage1');
+// // // // // //       final double? cy1 = _box.read<double>('batteryCurrentCycle1');
+// // // // // //       batteryInfo1.batteryPercentage = p1 is num
+// // // // // //           ? p1.toDouble()
+// // // // // //           : batteryInfo1.batteryPercentage;
+// // // // // //       batteryInfo1.batteryVoltage = v1 is num
+// // // // // //           ? v1.toDouble()
+// // // // // //           : batteryInfo1.batteryVoltage;
+// // // // // //       batteryInfo1.currentCycle = cy1 ?? batteryInfo1.currentCycle;
+// // // // // //     }
+// // // // // //     final int? cur1 = _box.read<int>('currentPressure1');
+// // // // // //     final int? tgt1 = _box.read<int>('targetPressure1');
+// // // // // //     final int? pump1 = _box.read<int>('pumpStatus1');
+// // // // // //     if (cur1 != null) currentPressure1 = cur1;
+// // // // // //     if (tgt1 != null) targetPressure1 = tgt1;
+// // // // // //     if (pump1 != null) pumpStatus1 = pump1;
+// // // // // //     final int? sp1 = _box.read<int>('selectedPresetIndex1');
+// // // // // //     if (sp1 != null && sp1 >= 0 && sp1 < Presets.values.length) {
+// // // // // //       selectedPreset1 = Presets.values[sp1];
+// // // // // //     }
+
+// // // // // //     // Side 2
+// // // // // //     final int? c2 = _box.read<int>('batteryChargingStatus2');
+// // // // // //     if (c2 != null) {
+// // // // // //       batteryInfo2.chargingStatus = c2;
+// // // // // //       final dynamic p2 = _box.read('batteryPercentage2');
+// // // // // //       final dynamic v2 = _box.read('batteryVoltage2');
+// // // // // //       final double? cy2 = _box.read<double>('batteryCurrentCycle2');
+// // // // // //       batteryInfo2.batteryPercentage = p2 is num
+// // // // // //           ? p2.toDouble()
+// // // // // //           : batteryInfo2.batteryPercentage;
+// // // // // //       batteryInfo2.batteryVoltage = v2 is num
+// // // // // //           ? v2.toDouble()
+// // // // // //           : batteryInfo2.batteryVoltage;
+// // // // // //       batteryInfo2.currentCycle = cy2 ?? batteryInfo2.currentCycle;
+// // // // // //     }
+// // // // // //     final int? cur2 = _box.read<int>('currentPressure2');
+// // // // // //     final int? tgt2 = _box.read<int>('targetPressure2');
+// // // // // //     final int? pump2 = _box.read<int>('pumpStatus2');
+// // // // // //     if (cur2 != null) currentPressure2 = cur2;
+// // // // // //     if (tgt2 != null) targetPressure2 = tgt2;
+// // // // // //     if (pump2 != null) pumpStatus2 = pump2;
+// // // // // //     final int? sp2 = _box.read<int>('selectedPresetIndex2');
+// // // // // //     if (sp2 != null && sp2 >= 0 && sp2 < Presets.values.length) {
+// // // // // //       selectedPreset2 = Presets.values[sp2];
+// // // // // //     }
+
+// // // // // //     // Shared presets
+// // // // // //     final dynamic storedPresets = _box.read('preSets');
+// // // // // //     if (storedPresets is Map) {
+// // // // // //       preSets = storedPresets.map(
+// // // // // //         (key, value) => MapEntry(key.toString(), (value as num).toInt()),
+// // // // // //       );
+// // // // // //     }
+
+// // // // // //     update();
+// // // // // //   }
+
+// // // // // //   void _startReconnectLoop(DeviceSide side) {
+// // // // // //     if (side == DeviceSide.left) {
+// // // // // //       if (_leftReconnectTimer != null && _leftReconnectTimer!.isActive) return;
+// // // // // //       _leftReconnectTimer = Timer.periodic(
+// // // // // //         const Duration(seconds: 2),
+// // // // // //         (_) => _attemptSideReconnect(DeviceSide.left),
+// // // // // //       );
+// // // // // //     } else {
+// // // // // //       if (_rightReconnectTimer != null && _rightReconnectTimer!.isActive)
+// // // // // //         return;
+// // // // // //       _rightReconnectTimer = Timer.periodic(
+// // // // // //         const Duration(seconds: 2),
+// // // // // //         (_) => _attemptSideReconnect(DeviceSide.right),
+// // // // // //       );
+// // // // // //     }
+// // // // // //   }
+
+// // // // // //   void _stopReconnectLoop(DeviceSide side) {
+// // // // // //     if (side == DeviceSide.left) {
+// // // // // //       _leftReconnectTimer?.cancel();
+// // // // // //       _leftReconnectTimer = null;
+// // // // // //     } else {
+// // // // // //       _rightReconnectTimer?.cancel();
+// // // // // //       _rightReconnectTimer = null;
+// // // // // //     }
+// // // // // //   }
+
+// // // // // //   Future<void> _attemptSideReconnect(DeviceSide side) async {
+// // // // // //     final state = await FlutterBluePlus.adapterState.first;
+// // // // // //     if (state != BluetoothAdapterState.on) {
+// // // // // //       _stopReconnectLoop(side);
+// // // // // //       return;
+// // // // // //     }
+
+// // // // // //     if (side == DeviceSide.left) {
+// // // // // //       final id = deviceInfo1.remoteId.str;
+// // // // // //       if (id == 'str' || devices.item1.isConnected) {
+// // // // // //         _stopReconnectLoop(DeviceSide.left);
+// // // // // //         return;
+// // // // // //       }
+// // // // // //       try {
+// // // // // //         await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
+// // // // // //       } catch (_) {}
+// // // // // //     } else {
+// // // // // //       final id = deviceInfo2.remoteId.str;
+// // // // // //       if (id == 'str' || devices.item2.isConnected) {
+// // // // // //         _stopReconnectLoop(DeviceSide.right);
+// // // // // //         return;
+// // // // // //       }
+// // // // // //       try {
+// // // // // //         await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
+// // // // // //       } catch (_) {}
+// // // // // //     }
+// // // // // //   }
+
+// // // // // //   void ApplyPreset({
+// // // // // //     required DeviceSide deviceSide,
+// // // // // //     required Presets preset,
+// // // // // //   }) async {
+// // // // // //     if (deviceSide == DeviceSide.left && !devices.item1.isConnected) return;
+// // // // // //     if (deviceSide == DeviceSide.right && !devices.item2.isConnected) return;
+
+// // // // // //     int value = 0;
+// // // // // //     if (preset == Presets.sit) {
+// // // // // //       value = preSets["sit"] ?? 0;
+// // // // // //     } else if (preset == Presets.walk) {
+// // // // // //       value = preSets["walk"] ?? 0;
+// // // // // //     } else {
+// // // // // //       value = preSets["run"] ?? 0;
+// // // // // //     }
+
+// // // // // //     if (deviceSide == DeviceSide.left) {
+// // // // // //       selectedPreset1 = preset;
+// // // // // //       targetPressure1 = value;
+// // // // // //     } else {
+// // // // // //       selectedPreset2 = preset;
+// // // // // //       targetPressure2 = value;
+// // // // // //     }
+// // // // // //     sendMessage(message: "5:$value", deviceSide: deviceSide);
+// // // // // //     _saveState();
+// // // // // //     update();
+// // // // // //   }
+
+// // // // // //   void setPreset({required Presets preset, required int value}) {
+// // // // // //     if (preset == Presets.sit) {
+// // // // // //       preSets["sit"] = value;
+// // // // // //     } else if (preset == Presets.walk) {
+// // // // // //       preSets["walk"] = value;
+// // // // // //     } else {
+// // // // // //       preSets["run"] = value;
+// // // // // //     }
+
+// // // // // //     _saveState();
+// // // // // //     update();
+// // // // // //   }
+
+// // // // // //   void removePreset(DeviceSide deviceSide) {
+// // // // // //     if (deviceSide == DeviceSide.left) {
+// // // // // //       selectedPreset1 = Presets.non;
+// // // // // //     } else {
+// // // // // //       selectedPreset2 = Presets.non;
+// // // // // //     }
+// // // // // //     _saveState();
+// // // // // //     update();
+// // // // // //   }
+// // // // // // }
+
+// // // // // // enum DeviceSide { left, right }
+
+// // // // // // enum Presets { sit, walk, run, non }
+
 // // // // // import 'dart:async';
 // // // // // import 'package:coyote_app/services/ble_manager.dart';
 // // // // // import 'package:flutter_blue_plus/flutter_blue_plus.dart';
@@ -35,10 +754,20 @@
 // // // // //   Timer? _leftReconnectTimer;
 // // // // //   Timer? _rightReconnectTimer;
 
-// // // // //   // ── Fixed: one subscription per side to prevent ghost listeners ──────────
+// // // // //   // ── Per-side in-flight guard: prevents concurrent connection attempts ─────
+// // // // //   bool _leftAttemptInFlight = false;
+// // // // //   bool _rightAttemptInFlight = false;
+// // // // //   // ─────────────────────────────────────────────────────────────────────────
+
+// // // // //   // ── Exponential backoff state per side ───────────────────────────────────
+// // // // //   int _leftBackoffSeconds = 5;
+// // // // //   int _rightBackoffSeconds = 5;
+// // // // //   static const int _minBackoffSeconds = 5;
+// // // // //   static const int _maxBackoffSeconds = 60;
+// // // // //   // ─────────────────────────────────────────────────────────────────────────
+
 // // // // //   StreamSubscription? _leftSubscription;
 // // // // //   StreamSubscription? _rightSubscription;
-// // // // //   // ─────────────────────────────────────────────────────────────────────────
 
 // // // // //   BluetoothDevice deviceInfo1 = BluetoothDevice(
 // // // // //     remoteId: DeviceIdentifier("str"),
@@ -48,7 +777,6 @@
 // // // // //   );
 // // // // //   String deviceInfoName1 = "";
 // // // // //   String deviceInfoName2 = "";
-// // // // //   // Per-device state (left = 1, right = 2)
 // // // // //   Battery batteryInfo1 = Battery();
 // // // // //   Battery batteryInfo2 = Battery();
 // // // // //   int currentPressure1 = 0;
@@ -119,20 +847,15 @@
 // // // // //   @override
 // // // // //   void didChangeAppLifecycleState(AppLifecycleState state) {
 // // // // //     if (state == AppLifecycleState.resumed) {
-// // // // //       // App was backgrounded/closed and is now active again.
-// // // // //       // Show disconnected state immediately (isConnected == false),
-// // // // //       // and keep retrying reconnection in the background.
 // // // // //       _autoReconnect();
 // // // // //     }
 // // // // //   }
 
 // // // // //   void _handleBluetoothOff() {
-// // // // //     // ── Fixed: cancel subscriptions before clearing ────────────────────────
 // // // // //     _leftSubscription?.cancel();
 // // // // //     _leftSubscription = null;
 // // // // //     _rightSubscription?.cancel();
 // // // // //     _rightSubscription = null;
-// // // // //     // ─────────────────────────────────────────────────────────────────────────
 
 // // // // //     devices.item1.clearConnection();
 // // // // //     devices.item2.clearConnection();
@@ -152,6 +875,8 @@
 // // // // //     isReconnecting = false;
 // // // // //     _stopReconnectLoop(DeviceSide.left);
 // // // // //     _stopReconnectLoop(DeviceSide.right);
+// // // // //     _resetBackoff(DeviceSide.left);
+// // // // //     _resetBackoff(DeviceSide.right);
 // // // // //     _saveState();
 // // // // //     update();
 // // // // //   }
@@ -167,9 +892,6 @@
 
 // // // // //     if (leftId == 'str' && rightId == 'str') return;
 
-// // // // //     // isReconnecting = true;
-// // // // //     // update();
-
 // // // // //     try {
 // // // // //       if (leftId != 'str' && !devices.item1.isConnected) {
 // // // // //         await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
@@ -178,7 +900,6 @@
 // // // // //         await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
 // // // // //       }
 // // // // //     } catch (err) {
-// // // // //       // Ignore auto-reconnect errors; user can connect manually.
 // // // // //       isReconnecting = false;
 // // // // //       _ensureReconnectLoops();
 // // // // //       update();
@@ -187,16 +908,8 @@
 // // // // //     isReconnecting = false;
 // // // // //     _ensureReconnectLoops();
 // // // // //     update();
-// // // // //     // finally {
-// // // // //     //   // await Future.delayed(Duration(seconds: 10));
-// // // // //     //   isReconnecting = false;
-// // // // //     //   _ensureReconnectLoops();
-// // // // //     //   update();
-// // // // //     // }
 // // // // //   }
 
-// // // // //   /// Ensures background reconnect loops are running for any known device ids
-// // // // //   /// that are currently disconnected. This keeps retrying while the app is open.
 // // // // //   void _ensureReconnectLoops() {
 // // // // //     final leftId = deviceInfo1.remoteId.str;
 // // // // //     final rightId = deviceInfo2.remoteId.str;
@@ -222,21 +935,15 @@
 // // // // //         if (device.advName != "") {
 // // // // //           deviceInfoName1 = device.advName;
 // // // // //         }
-// // // // //         // try {
 // // // // //         await devices.item1.connect(device);
-// // // // //         // ── Fixed: cancel old subscription before attaching a new one ──────
 // // // // //         _leftSubscription?.cancel();
 // // // // //         _leftSubscription = devices.item1.messageStream.listen((msg) {
 // // // // //           print(msg);
 // // // // //           splitData(msg, DeviceSide.left);
 // // // // //         });
-// // // // //         // ───────────────────────────────────────────────────────────────────
-
 // // // // //         await sendInitalMessages(DeviceSide.left);
 // // // // //         startFiveSecondTimerLeft();
-// // // // //         // } catch (err) {
-// // // // //         //   print("error Connect controller");
-// // // // //         // }
+// // // // //         _resetBackoff(DeviceSide.left); // Reset backoff on successful connect
 // // // // //       }
 // // // // //     } else {
 // // // // //       if (!devices.item2.isConnected) {
@@ -244,20 +951,15 @@
 // // // // //         if (device.advName != "") {
 // // // // //           deviceInfoName2 = device.advName;
 // // // // //         }
-// // // // //         // try {
 // // // // //         await devices.item2.connect(device);
-
-// // // // //         // ── Fixed: cancel old subscription before attaching a new one ──────
 // // // // //         _rightSubscription?.cancel();
 // // // // //         _rightSubscription = devices.item2.messageStream.listen((msg) {
 // // // // //           print(msg);
 // // // // //           splitData(msg, DeviceSide.right);
 // // // // //         });
-// // // // //         // ───────────────────────────────────────────────────────────────────
-
 // // // // //         await sendInitalMessages(DeviceSide.right);
 // // // // //         startFiveSecondTimerRight();
-// // // // //         // } catch (err) {}
+// // // // //         _resetBackoff(DeviceSide.right); // Reset backoff on successful connect
 // // // // //       }
 // // // // //     }
 
@@ -270,10 +972,8 @@
 // // // // //     if (deviceSide == DeviceSide.left) {
 // // // // //       _timerLeft?.cancel();
 // // // // //       _timerLeft = null;
-// // // // //       // ── Fixed: cancel subscription on disconnect ──────────────────────
 // // // // //       await _leftSubscription?.cancel();
 // // // // //       _leftSubscription = null;
-// // // // //       // ───────────────────────────────────────────────────────────────────
 // // // // //       if (devices.item1.isConnected) {
 // // // // //         await devices.item1.disconnect();
 // // // // //       }
@@ -287,10 +987,8 @@
 // // // // //     } else {
 // // // // //       _timerRight?.cancel();
 // // // // //       _timerRight = null;
-// // // // //       // ── Fixed: cancel subscription on disconnect ──────────────────────
 // // // // //       await _rightSubscription?.cancel();
 // // // // //       _rightSubscription = null;
-// // // // //       // ───────────────────────────────────────────────────────────────────
 // // // // //       if (devices.item2.isConnected) {
 // // // // //         await devices.item2.disconnect();
 // // // // //       }
@@ -303,6 +1001,7 @@
 // // // // //       selectedPreset2 = Presets.non;
 // // // // //     }
 // // // // //     _stopReconnectLoop(deviceSide);
+// // // // //     _resetBackoff(deviceSide);
 // // // // //     update();
 // // // // //     _saveState();
 // // // // //   }
@@ -344,16 +1043,10 @@
 // // // // //       sendMessage(message: "7", deviceSide: DeviceSide.left);
 // // // // //       sendMessage(message: "4", deviceSide: DeviceSide.left);
 // // // // //       sendMessage(message: "6", deviceSide: DeviceSide.left);
-// // // // //       // devices.item1.sendMessage("7");
-// // // // //       // devices.item1.sendMessage("4");
-// // // // //       // devices.item1.sendMessage("6");
 // // // // //     } else {
 // // // // //       sendMessage(message: "7", deviceSide: DeviceSide.right);
 // // // // //       sendMessage(message: "4", deviceSide: DeviceSide.right);
 // // // // //       sendMessage(message: "6", deviceSide: DeviceSide.right);
-// // // // //       // devices.item2.sendMessage("7");
-// // // // //       // devices.item2.sendMessage("4");
-// // // // //       // devices.item2.sendMessage("6");
 // // // // //     }
 // // // // //   }
 
@@ -460,7 +1153,6 @@
 // // // // //   }
 
 // // // // //   void _handleDisconnected(DeviceSide side) {
-// // // // //     // ── Fixed: cancel subscription for the disconnected side ──────────────
 // // // // //     if (side == DeviceSide.left) {
 // // // // //       _leftSubscription?.cancel();
 // // // // //       _leftSubscription = null;
@@ -478,7 +1170,6 @@
 // // // // //       _timerRight?.cancel();
 // // // // //       _timerRight = null;
 // // // // //     }
-// // // // //     // ─────────────────────────────────────────────────────────────────────────
 
 // // // // //     if (!devices.item1.isConnected && !devices.item2.isConnected) {
 // // // // //       scanResults = [];
@@ -606,19 +1297,51 @@
 // // // // //     update();
 // // // // //   }
 
+// // // // //   // ── Backoff helpers ───────────────────────────────────────────────────────
+
+// // // // //   void _resetBackoff(DeviceSide side) {
+// // // // //     if (side == DeviceSide.left) {
+// // // // //       _leftBackoffSeconds = _minBackoffSeconds;
+// // // // //     } else {
+// // // // //       _rightBackoffSeconds = _minBackoffSeconds;
+// // // // //     }
+// // // // //   }
+
+// // // // //   void _increaseBackoff(DeviceSide side) {
+// // // // //     if (side == DeviceSide.left) {
+// // // // //       _leftBackoffSeconds = (_leftBackoffSeconds * 2).clamp(
+// // // // //         _minBackoffSeconds,
+// // // // //         _maxBackoffSeconds,
+// // // // //       );
+// // // // //     } else {
+// // // // //       _rightBackoffSeconds = (_rightBackoffSeconds * 2).clamp(
+// // // // //         _minBackoffSeconds,
+// // // // //         _maxBackoffSeconds,
+// // // // //       );
+// // // // //     }
+// // // // //   }
+
+// // // // //   int _getBackoff(DeviceSide side) =>
+// // // // //       side == DeviceSide.left ? _leftBackoffSeconds : _rightBackoffSeconds;
+
+// // // // //   // ─────────────────────────────────────────────────────────────────────────
+
 // // // // //   void _startReconnectLoop(DeviceSide side) {
+// // // // //     // ── Key change: schedule a one-shot delayed attempt using the current
+// // // // //     // backoff duration, instead of a fixed 2-second periodic timer.
+// // // // //     // This prevents BLE radio contention from hammering the stack constantly.
 // // // // //     if (side == DeviceSide.left) {
 // // // // //       if (_leftReconnectTimer != null && _leftReconnectTimer!.isActive) return;
-// // // // //       _leftReconnectTimer = Timer.periodic(
-// // // // //         const Duration(seconds: 2),
-// // // // //         (_) => _attemptSideReconnect(DeviceSide.left),
+// // // // //       _leftReconnectTimer = Timer(
+// // // // //         Duration(seconds: _getBackoff(DeviceSide.left)),
+// // // // //         () => _attemptSideReconnect(DeviceSide.left),
 // // // // //       );
 // // // // //     } else {
 // // // // //       if (_rightReconnectTimer != null && _rightReconnectTimer!.isActive)
 // // // // //         return;
-// // // // //       _rightReconnectTimer = Timer.periodic(
-// // // // //         const Duration(seconds: 2),
-// // // // //         (_) => _attemptSideReconnect(DeviceSide.right),
+// // // // //       _rightReconnectTimer = Timer(
+// // // // //         Duration(seconds: _getBackoff(DeviceSide.right)),
+// // // // //         () => _attemptSideReconnect(DeviceSide.right),
 // // // // //       );
 // // // // //     }
 // // // // //   }
@@ -627,37 +1350,70 @@
 // // // // //     if (side == DeviceSide.left) {
 // // // // //       _leftReconnectTimer?.cancel();
 // // // // //       _leftReconnectTimer = null;
+// // // // //       _leftAttemptInFlight = false;
 // // // // //     } else {
 // // // // //       _rightReconnectTimer?.cancel();
 // // // // //       _rightReconnectTimer = null;
+// // // // //       _rightAttemptInFlight = false;
 // // // // //     }
 // // // // //   }
 
 // // // // //   Future<void> _attemptSideReconnect(DeviceSide side) async {
-// // // // //     final state = await FlutterBluePlus.adapterState.first;
-// // // // //     if (state != BluetoothAdapterState.on) {
-// // // // //       _stopReconnectLoop(side);
-// // // // //       return;
-// // // // //     }
-
+// // // // //     // ── Guard: skip if an attempt is already in progress for this side ─────
 // // // // //     if (side == DeviceSide.left) {
-// // // // //       final id = deviceInfo1.remoteId.str;
-// // // // //       if (id == 'str' || devices.item1.isConnected) {
-// // // // //         _stopReconnectLoop(DeviceSide.left);
-// // // // //         return;
-// // // // //       }
-// // // // //       try {
-// // // // //         await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
-// // // // //       } catch (_) {}
+// // // // //       if (_leftAttemptInFlight) return;
+// // // // //       _leftAttemptInFlight = true;
 // // // // //     } else {
-// // // // //       final id = deviceInfo2.remoteId.str;
-// // // // //       if (id == 'str' || devices.item2.isConnected) {
-// // // // //         _stopReconnectLoop(DeviceSide.right);
+// // // // //       if (_rightAttemptInFlight) return;
+// // // // //       _rightAttemptInFlight = true;
+// // // // //     }
+// // // // //     // ─────────────────────────────────────────────────────────────────────────
+
+// // // // //     try {
+// // // // //       final state = await FlutterBluePlus.adapterState.first;
+// // // // //       if (state != BluetoothAdapterState.on) {
+// // // // //         _stopReconnectLoop(side);
 // // // // //         return;
 // // // // //       }
-// // // // //       try {
-// // // // //         await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
-// // // // //       } catch (_) {}
+
+// // // // //       if (side == DeviceSide.left) {
+// // // // //         final id = deviceInfo1.remoteId.str;
+// // // // //         if (id == 'str' || devices.item1.isConnected) {
+// // // // //           _stopReconnectLoop(DeviceSide.left);
+// // // // //           return;
+// // // // //         }
+// // // // //         try {
+// // // // //           await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
+// // // // //           // Success: backoff reset handled inside connect()
+// // // // //         } catch (_) {
+// // // // //           // Failed: back off longer before next attempt, then reschedule
+// // // // //           _increaseBackoff(DeviceSide.left);
+// // // // //           _leftReconnectTimer = null; // Allow _startReconnectLoop to proceed
+// // // // //           _startReconnectLoop(DeviceSide.left);
+// // // // //         }
+// // // // //       } else {
+// // // // //         final id = deviceInfo2.remoteId.str;
+// // // // //         if (id == 'str' || devices.item2.isConnected) {
+// // // // //           _stopReconnectLoop(DeviceSide.right);
+// // // // //           return;
+// // // // //         }
+// // // // //         try {
+// // // // //           await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
+// // // // //           // Success: backoff reset handled inside connect()
+// // // // //         } catch (_) {
+// // // // //           // Failed: back off longer before next attempt, then reschedule
+// // // // //           _increaseBackoff(DeviceSide.right);
+// // // // //           _rightReconnectTimer = null; // Allow _startReconnectLoop to proceed
+// // // // //           _startReconnectLoop(DeviceSide.right);
+// // // // //         }
+// // // // //       }
+// // // // //     } finally {
+// // // // //       // ── Always release the in-flight guard when done ──────────────────────
+// // // // //       if (side == DeviceSide.left) {
+// // // // //         _leftAttemptInFlight = false;
+// // // // //       } else {
+// // // // //         _rightAttemptInFlight = false;
+// // // // //       }
 // // // // //     }
 // // // // //   }
 
@@ -733,12 +1489,12 @@
 
 // // // //   Battery.fromString(String data) {
 // // // //     List<String> parts = data.split(':');
-
 // // // //     chargingStatus = int.parse(parts[1]);
 // // // //     batteryPercentage = double.parse(parts[2]);
 // // // //     batteryVoltage = double.parse(parts[3]);
 // // // //     currentCycle = double.parse(parts[4]);
 // // // //   }
+
 // // // //   Battery() {
 // // // //     chargingStatus = 20;
 // // // //     batteryPercentage = 20;
@@ -750,33 +1506,24 @@
 // // // // class BleController extends GetxController with WidgetsBindingObserver {
 // // // //   late final Tuple2<BleManager, BleManager> devices;
 // // // //   final GetStorage _box = GetStorage();
-// // // //   bool isReconnecting = false;
-// // // //   Timer? _leftReconnectTimer;
-// // // //   Timer? _rightReconnectTimer;
 
-// // // //   // ── Per-side in-flight guard: prevents concurrent connection attempts ─────
-// // // //   bool _leftAttemptInFlight = false;
-// // // //   bool _rightAttemptInFlight = false;
-// // // //   // ─────────────────────────────────────────────────────────────────────────
+// // // //   // One shared scan subscription. We scan continuously whenever at least one
+// // // //   // known device is disconnected, and connect the moment it appears.
+// // // //   StreamSubscription? _scanSubscription;
+// // // //   bool _isScanning = false;
 
-// // // //   // ── Exponential backoff state per side ───────────────────────────────────
-// // // //   int _leftBackoffSeconds = 5;
-// // // //   int _rightBackoffSeconds = 5;
-// // // //   static const int _minBackoffSeconds = 5;
-// // // //   static const int _maxBackoffSeconds = 60;
-// // // //   // ─────────────────────────────────────────────────────────────────────────
+// // // //   // Per-side connect-in-progress guard to prevent duplicate connects
+// // // //   bool _leftConnecting = false;
+// // // //   bool _rightConnecting = false;
 
 // // // //   StreamSubscription? _leftSubscription;
 // // // //   StreamSubscription? _rightSubscription;
 
-// // // //   BluetoothDevice deviceInfo1 = BluetoothDevice(
-// // // //     remoteId: DeviceIdentifier("str"),
-// // // //   );
-// // // //   BluetoothDevice deviceInfo2 = BluetoothDevice(
-// // // //     remoteId: DeviceIdentifier("str"),
-// // // //   );
+// // // //   BluetoothDevice deviceInfo1 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
+// // // //   BluetoothDevice deviceInfo2 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
 // // // //   String deviceInfoName1 = "";
 // // // //   String deviceInfoName2 = "";
+
 // // // //   Battery batteryInfo1 = Battery();
 // // // //   Battery batteryInfo2 = Battery();
 // // // //   int currentPressure1 = 0;
@@ -796,19 +1543,12 @@
 // // // //       side == DeviceSide.left ? currentPressure1 : currentPressure2;
 // // // //   int getTargetPressure(DeviceSide side) =>
 // // // //       side == DeviceSide.left ? targetPressure1 : targetPressure2;
+
 // // // //   int getPumpStatus(DeviceSide side) {
 // // // //     if (side == DeviceSide.left) {
-// // // //       if (devices.item1.isConnected) {
-// // // //         return pumpStatus1;
-// // // //       } else {
-// // // //         return 0;
-// // // //       }
+// // // //       return devices.item1.isConnected ? pumpStatus1 : 0;
 // // // //     } else {
-// // // //       if (devices.item2.isConnected) {
-// // // //         return pumpStatus2;
-// // // //       } else {
-// // // //         return 0;
-// // // //       }
+// // // //       return devices.item2.isConnected ? pumpStatus2 : 0;
 // // // //     }
 // // // //   }
 
@@ -825,7 +1565,6 @@
 // // // //   @override
 // // // //   void onInit() {
 // // // //     super.onInit();
-
 // // // //     WidgetsBinding.instance.addObserver(this);
 // // // //     _restoreState();
 // // // //     FlutterBluePlus.adapterState.listen((state) {
@@ -841,6 +1580,7 @@
 // // // //   @override
 // // // //   void onClose() {
 // // // //     WidgetsBinding.instance.removeObserver(this);
+// // // //     _stopReconnectScan();
 // // // //     super.onClose();
 // // // //   }
 
@@ -851,7 +1591,107 @@
 // // // //     }
 // // // //   }
 
+// // // //   // Try a direct connect first (fast if device is already nearby/cached).
+// // // //   // If it fails because the device is off, _startReconnectScan() catches it.
+// // // //   Future<void> _autoReconnect() async {
+// // // //     final state = await FlutterBluePlus.adapterState.first;
+// // // //     if (state != BluetoothAdapterState.on) return;
+
+// // // //     final leftId = deviceInfo1.remoteId.str;
+// // // //     final rightId = deviceInfo2.remoteId.str;
+// // // //     if (leftId == 'str' && rightId == 'str') return;
+
+// // // //     if (leftId != 'str' && !devices.item1.isConnected && !_leftConnecting) {
+// // // //       try {
+// // // //         await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
+// // // //       } catch (_) {}
+// // // //     }
+// // // //     if (rightId != 'str' && !devices.item2.isConnected && !_rightConnecting) {
+// // // //       try {
+// // // //         await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
+// // // //       } catch (_) {}
+// // // //     }
+
+// // // //     _startReconnectScan();
+// // // //     update();
+// // // //   }
+
+// // // //   // Starts a continuous BLE scan and connects any known device the moment
+// // // //   // it appears in results. Stops automatically when all known devices are
+// // // //   // connected. Zero reconnect attempts are made while the device is off --
+// // // //   // we simply wait for it to advertise, then connect instantly.
+// // // //   void _startReconnectScan() {
+// // // //     final leftId = deviceInfo1.remoteId.str;
+// // // //     final rightId = deviceInfo2.remoteId.str;
+
+// // // //     final needLeft = leftId != 'str' && !devices.item1.isConnected;
+// // // //     final needRight = rightId != 'str' && !devices.item2.isConnected;
+
+// // // //     if (!needLeft && !needRight) {
+// // // //       _stopReconnectScan();
+// // // //       return;
+// // // //     }
+
+// // // //     // Already scanning -- existing listener will handle new results.
+// // // //     if (_isScanning) return;
+
+// // // //     _isScanning = true;
+
+// // // //     // Indefinite scan filtered to NUS service -- only our own devices wake it.
+// // // //     FlutterBluePlus.startScan(
+// // // //       withServices: [Guid(BleManager.NUS_SERVICE_UUID)],
+// // // //     );
+
+// // // //     _scanSubscription = FlutterBluePlus.scanResults.listen((results) async {
+// // // //       for (final result in results) {
+// // // //         final id = result.device.remoteId.str;
+
+// // // //         if (id == deviceInfo1.remoteId.str &&
+// // // //             !devices.item1.isConnected &&
+// // // //             !_leftConnecting) {
+// // // //           _leftConnecting = true;
+// // // //           try {
+// // // //             await connect(device: result.device, deviceSide: DeviceSide.left);
+// // // //           } catch (_) {
+// // // //           } finally {
+// // // //             _leftConnecting = false;
+// // // //           }
+// // // //         }
+
+// // // //         if (id == deviceInfo2.remoteId.str &&
+// // // //             !devices.item2.isConnected &&
+// // // //             !_rightConnecting) {
+// // // //           _rightConnecting = true;
+// // // //           try {
+// // // //             await connect(device: result.device, deviceSide: DeviceSide.right);
+// // // //           } catch (_) {
+// // // //           } finally {
+// // // //             _rightConnecting = false;
+// // // //           }
+// // // //         }
+
+// // // //         final bothDone =
+// // // //             (deviceInfo1.remoteId.str == 'str' || devices.item1.isConnected) &&
+// // // //             (deviceInfo2.remoteId.str == 'str' || devices.item2.isConnected);
+// // // //         if (bothDone) {
+// // // //           _stopReconnectScan();
+// // // //           break;
+// // // //         }
+// // // //       }
+// // // //     });
+// // // //   }
+
+// // // //   void _stopReconnectScan() {
+// // // //     if (!_isScanning) return;
+// // // //     _isScanning = false;
+// // // //     _scanSubscription?.cancel();
+// // // //     _scanSubscription = null;
+// // // //     FlutterBluePlus.stopScan();
+// // // //   }
+
 // // // //   void _handleBluetoothOff() {
+// // // //     _stopReconnectScan();
+
 // // // //     _leftSubscription?.cancel();
 // // // //     _leftSubscription = null;
 // // // //     _rightSubscription?.cancel();
@@ -872,57 +1712,10 @@
 // // // //     selectedPreset1 = Presets.non;
 // // // //     selectedPreset2 = Presets.non;
 // // // //     scanResults = [];
-// // // //     isReconnecting = false;
-// // // //     _stopReconnectLoop(DeviceSide.left);
-// // // //     _stopReconnectLoop(DeviceSide.right);
-// // // //     _resetBackoff(DeviceSide.left);
-// // // //     _resetBackoff(DeviceSide.right);
+// // // //     _leftConnecting = false;
+// // // //     _rightConnecting = false;
 // // // //     _saveState();
 // // // //     update();
-// // // //   }
-
-// // // //   Future<void> _autoReconnect() async {
-// // // //     if (isReconnecting) return;
-
-// // // //     final state = await FlutterBluePlus.adapterState.first;
-// // // //     if (state != BluetoothAdapterState.on) return;
-
-// // // //     final leftId = deviceInfo1.remoteId.str;
-// // // //     final rightId = deviceInfo2.remoteId.str;
-
-// // // //     if (leftId == 'str' && rightId == 'str') return;
-
-// // // //     try {
-// // // //       if (leftId != 'str' && !devices.item1.isConnected) {
-// // // //         await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
-// // // //       }
-// // // //       if (rightId != 'str' && !devices.item2.isConnected) {
-// // // //         await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
-// // // //       }
-// // // //     } catch (err) {
-// // // //       isReconnecting = false;
-// // // //       _ensureReconnectLoops();
-// // // //       update();
-// // // //       print("error initial");
-// // // //     }
-// // // //     isReconnecting = false;
-// // // //     _ensureReconnectLoops();
-// // // //     update();
-// // // //   }
-
-// // // //   void _ensureReconnectLoops() {
-// // // //     final leftId = deviceInfo1.remoteId.str;
-// // // //     final rightId = deviceInfo2.remoteId.str;
-
-// // // //     if (leftId != 'str' && !devices.item1.isConnected) {
-// // // //       _startReconnectLoop(DeviceSide.left);
-// // // //     }
-// // // //     if (rightId != 'str' && !devices.item2.isConnected) {
-// // // //       _startReconnectLoop(DeviceSide.right);
-// // // //     }
-
-// // // //     if (devices.item1.isConnected) _stopReconnectLoop(DeviceSide.left);
-// // // //     if (devices.item2.isConnected) _stopReconnectLoop(DeviceSide.right);
 // // // //   }
 
 // // // //   Future<void> connect({
@@ -932,38 +1725,34 @@
 // // // //     if (deviceSide == DeviceSide.left) {
 // // // //       if (!devices.item1.isConnected) {
 // // // //         deviceInfo1 = device;
-// // // //         if (device.advName != "") {
-// // // //           deviceInfoName1 = device.advName;
-// // // //         }
+// // // //         if (device.advName != "") deviceInfoName1 = device.advName;
 // // // //         await devices.item1.connect(device);
 // // // //         _leftSubscription?.cancel();
 // // // //         _leftSubscription = devices.item1.messageStream.listen((msg) {
-// // // //           print(msg);
 // // // //           splitData(msg, DeviceSide.left);
 // // // //         });
 // // // //         await sendInitalMessages(DeviceSide.left);
 // // // //         startFiveSecondTimerLeft();
-// // // //         _resetBackoff(DeviceSide.left); // Reset backoff on successful connect
 // // // //       }
 // // // //     } else {
 // // // //       if (!devices.item2.isConnected) {
 // // // //         deviceInfo2 = device;
-// // // //         if (device.advName != "") {
-// // // //           deviceInfoName2 = device.advName;
-// // // //         }
+// // // //         if (device.advName != "") deviceInfoName2 = device.advName;
 // // // //         await devices.item2.connect(device);
 // // // //         _rightSubscription?.cancel();
 // // // //         _rightSubscription = devices.item2.messageStream.listen((msg) {
-// // // //           print(msg);
 // // // //           splitData(msg, DeviceSide.right);
 // // // //         });
 // // // //         await sendInitalMessages(DeviceSide.right);
 // // // //         startFiveSecondTimerRight();
-// // // //         _resetBackoff(DeviceSide.right); // Reset backoff on successful connect
 // // // //       }
 // // // //     }
 
-// // // //     _stopReconnectLoop(deviceSide);
+// // // //     final bothDone =
+// // // //         (deviceInfo1.remoteId.str == 'str' || devices.item1.isConnected) &&
+// // // //         (deviceInfo2.remoteId.str == 'str' || devices.item2.isConnected);
+// // // //     if (bothDone) _stopReconnectScan();
+
 // // // //     _saveState();
 // // // //     update();
 // // // //   }
@@ -974,9 +1763,7 @@
 // // // //       _timerLeft = null;
 // // // //       await _leftSubscription?.cancel();
 // // // //       _leftSubscription = null;
-// // // //       if (devices.item1.isConnected) {
-// // // //         await devices.item1.disconnect();
-// // // //       }
+// // // //       if (devices.item1.isConnected) await devices.item1.disconnect();
 // // // //       deviceInfo1 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
 // // // //       deviceInfoName1 = "";
 // // // //       batteryInfo1 = Battery();
@@ -989,9 +1776,7 @@
 // // // //       _timerRight = null;
 // // // //       await _rightSubscription?.cancel();
 // // // //       _rightSubscription = null;
-// // // //       if (devices.item2.isConnected) {
-// // // //         await devices.item2.disconnect();
-// // // //       }
+// // // //       if (devices.item2.isConnected) await devices.item2.disconnect();
 // // // //       deviceInfo2 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
 // // // //       deviceInfoName2 = "";
 // // // //       batteryInfo2 = Battery();
@@ -1000,10 +1785,39 @@
 // // // //       pumpStatus2 = 0;
 // // // //       selectedPreset2 = Presets.non;
 // // // //     }
-// // // //     _stopReconnectLoop(deviceSide);
-// // // //     _resetBackoff(deviceSide);
+// // // //     _stopReconnectScan();
 // // // //     update();
 // // // //     _saveState();
+// // // //   }
+
+// // // //   void _handleDisconnected(DeviceSide side) {
+// // // //     if (side == DeviceSide.left) {
+// // // //       _leftSubscription?.cancel();
+// // // //       _leftSubscription = null;
+// // // //       batteryInfo1 = Battery();
+// // // //       currentPressure1 = 0;
+// // // //       pumpStatus1 = 0;
+// // // //       _timerLeft?.cancel();
+// // // //       _timerLeft = null;
+// // // //       _leftConnecting = false;
+// // // //     } else {
+// // // //       _rightSubscription?.cancel();
+// // // //       _rightSubscription = null;
+// // // //       batteryInfo2 = Battery();
+// // // //       currentPressure2 = 0;
+// // // //       pumpStatus2 = 0;
+// // // //       _timerRight?.cancel();
+// // // //       _timerRight = null;
+// // // //       _rightConnecting = false;
+// // // //     }
+
+// // // //     if (!devices.item1.isConnected && !devices.item2.isConnected) {
+// // // //       scanResults = [];
+// // // //     }
+
+// // // //     _startReconnectScan();
+// // // //     _saveState();
+// // // //     update();
 // // // //   }
 
 // // // //   void splitData(String msg, DeviceSide side) {
@@ -1016,7 +1830,6 @@
 // // // //       } else {
 // // // //         batteryInfo2 = battery;
 // // // //       }
-// // // //       print(battery);
 // // // //     } else if (msg[0] == '4') {
 // // // //       final parts = msg.split(':');
 // // // //       final value = int.parse(parts[1]) < 0 ? 0 : int.parse(parts[1]);
@@ -1051,24 +1864,18 @@
 // // // //   }
 
 // // // //   Timer? _timerLeft;
-
 // // // //   void startFiveSecondTimerLeft() {
 // // // //     _timerLeft?.cancel();
-// // // //     _timerLeft = Timer.periodic(const Duration(seconds: 5), (timer) {
-// // // //       if (devices.item1.isConnected) {
-// // // //         sendCommands(DeviceSide.left);
-// // // //       }
+// // // //     _timerLeft = Timer.periodic(const Duration(seconds: 5), (_) {
+// // // //       if (devices.item1.isConnected) sendCommands(DeviceSide.left);
 // // // //     });
 // // // //   }
 
 // // // //   Timer? _timerRight;
-
 // // // //   void startFiveSecondTimerRight() {
 // // // //     _timerRight?.cancel();
-// // // //     _timerRight = Timer.periodic(const Duration(seconds: 5), (timer) {
-// // // //       if (devices.item2.isConnected) {
-// // // //         sendCommands(DeviceSide.right);
-// // // //       }
+// // // //     _timerRight = Timer.periodic(const Duration(seconds: 5), (_) {
+// // // //       if (devices.item2.isConnected) sendCommands(DeviceSide.right);
 // // // //     });
 // // // //   }
 
@@ -1124,22 +1931,15 @@
 
 // // // //   Future<void> scan() async {
 // // // //     devices.item1.startScan().listen((results) {
-// // // //       scanResults = results.where((result) {
-// // // //         final name = result.device.advName;
-// // // //         return name.startsWith('PUCK_');
-// // // //       }).toList();
-// // // //       print("scan");
-// // // //       print(scanResults);
+// // // //       scanResults = results.where((r) => r.device.advName.startsWith('PUCK_')).toList();
 // // // //       update();
 // // // //     });
 // // // //   }
 
 // // // //   bool isConnected({required DeviceSide deviceSide}) {
-// // // //     if (deviceSide == DeviceSide.left) {
-// // // //       return devices.item1.isConnected;
-// // // //     } else {
-// // // //       return devices.item2.isConnected;
-// // // //     }
+// // // //     return deviceSide == DeviceSide.left
+// // // //         ? devices.item1.isConnected
+// // // //         : devices.item2.isConnected;
 // // // //   }
 
 // // // //   bool isDeviceConnected(DeviceSide deviceSide, BluetoothDevice device) {
@@ -1150,34 +1950,6 @@
 // // // //     } else {
 // // // //       return devices.item2.isConnected && deviceInfo2.remoteId.str == id;
 // // // //     }
-// // // //   }
-
-// // // //   void _handleDisconnected(DeviceSide side) {
-// // // //     if (side == DeviceSide.left) {
-// // // //       _leftSubscription?.cancel();
-// // // //       _leftSubscription = null;
-// // // //       batteryInfo1 = Battery();
-// // // //       currentPressure1 = 0;
-// // // //       pumpStatus1 = 0;
-// // // //       _timerLeft?.cancel();
-// // // //       _timerLeft = null;
-// // // //     } else {
-// // // //       _rightSubscription?.cancel();
-// // // //       _rightSubscription = null;
-// // // //       batteryInfo2 = Battery();
-// // // //       currentPressure2 = 0;
-// // // //       pumpStatus2 = 0;
-// // // //       _timerRight?.cancel();
-// // // //       _timerRight = null;
-// // // //     }
-
-// // // //     if (!devices.item1.isConnected && !devices.item2.isConnected) {
-// // // //       scanResults = [];
-// // // //     }
-
-// // // //     _startReconnectLoop(side);
-// // // //     _saveState();
-// // // //     update();
 // // // //   }
 
 // // // //   void _saveState() {
@@ -1234,19 +2006,14 @@
 // // // //       deviceInfoName2 = _box.read<String>('rightDeviceName') ?? "str";
 // // // //     }
 
-// // // //     // Side 1
 // // // //     final int? c1 = _box.read<int>('batteryChargingStatus1');
 // // // //     if (c1 != null) {
 // // // //       batteryInfo1.chargingStatus = c1;
 // // // //       final dynamic p1 = _box.read('batteryPercentage1');
 // // // //       final dynamic v1 = _box.read('batteryVoltage1');
 // // // //       final double? cy1 = _box.read<double>('batteryCurrentCycle1');
-// // // //       batteryInfo1.batteryPercentage = p1 is num
-// // // //           ? p1.toDouble()
-// // // //           : batteryInfo1.batteryPercentage;
-// // // //       batteryInfo1.batteryVoltage = v1 is num
-// // // //           ? v1.toDouble()
-// // // //           : batteryInfo1.batteryVoltage;
+// // // //       batteryInfo1.batteryPercentage = p1 is num ? p1.toDouble() : batteryInfo1.batteryPercentage;
+// // // //       batteryInfo1.batteryVoltage = v1 is num ? v1.toDouble() : batteryInfo1.batteryVoltage;
 // // // //       batteryInfo1.currentCycle = cy1 ?? batteryInfo1.currentCycle;
 // // // //     }
 // // // //     final int? cur1 = _box.read<int>('currentPressure1');
@@ -1260,19 +2027,14 @@
 // // // //       selectedPreset1 = Presets.values[sp1];
 // // // //     }
 
-// // // //     // Side 2
 // // // //     final int? c2 = _box.read<int>('batteryChargingStatus2');
 // // // //     if (c2 != null) {
 // // // //       batteryInfo2.chargingStatus = c2;
 // // // //       final dynamic p2 = _box.read('batteryPercentage2');
 // // // //       final dynamic v2 = _box.read('batteryVoltage2');
 // // // //       final double? cy2 = _box.read<double>('batteryCurrentCycle2');
-// // // //       batteryInfo2.batteryPercentage = p2 is num
-// // // //           ? p2.toDouble()
-// // // //           : batteryInfo2.batteryPercentage;
-// // // //       batteryInfo2.batteryVoltage = v2 is num
-// // // //           ? v2.toDouble()
-// // // //           : batteryInfo2.batteryVoltage;
+// // // //       batteryInfo2.batteryPercentage = p2 is num ? p2.toDouble() : batteryInfo2.batteryPercentage;
+// // // //       batteryInfo2.batteryVoltage = v2 is num ? v2.toDouble() : batteryInfo2.batteryVoltage;
 // // // //       batteryInfo2.currentCycle = cy2 ?? batteryInfo2.currentCycle;
 // // // //     }
 // // // //     final int? cur2 = _box.read<int>('currentPressure2');
@@ -1286,7 +2048,6 @@
 // // // //       selectedPreset2 = Presets.values[sp2];
 // // // //     }
 
-// // // //     // Shared presets
 // // // //     final dynamic storedPresets = _box.read('preSets');
 // // // //     if (storedPresets is Map) {
 // // // //       preSets = storedPresets.map(
@@ -1297,130 +2058,7 @@
 // // // //     update();
 // // // //   }
 
-// // // //   // ── Backoff helpers ───────────────────────────────────────────────────────
-
-// // // //   void _resetBackoff(DeviceSide side) {
-// // // //     if (side == DeviceSide.left) {
-// // // //       _leftBackoffSeconds = _minBackoffSeconds;
-// // // //     } else {
-// // // //       _rightBackoffSeconds = _minBackoffSeconds;
-// // // //     }
-// // // //   }
-
-// // // //   void _increaseBackoff(DeviceSide side) {
-// // // //     if (side == DeviceSide.left) {
-// // // //       _leftBackoffSeconds = (_leftBackoffSeconds * 2).clamp(
-// // // //         _minBackoffSeconds,
-// // // //         _maxBackoffSeconds,
-// // // //       );
-// // // //     } else {
-// // // //       _rightBackoffSeconds = (_rightBackoffSeconds * 2).clamp(
-// // // //         _minBackoffSeconds,
-// // // //         _maxBackoffSeconds,
-// // // //       );
-// // // //     }
-// // // //   }
-
-// // // //   int _getBackoff(DeviceSide side) =>
-// // // //       side == DeviceSide.left ? _leftBackoffSeconds : _rightBackoffSeconds;
-
-// // // //   // ─────────────────────────────────────────────────────────────────────────
-
-// // // //   void _startReconnectLoop(DeviceSide side) {
-// // // //     // ── Key change: schedule a one-shot delayed attempt using the current
-// // // //     // backoff duration, instead of a fixed 2-second periodic timer.
-// // // //     // This prevents BLE radio contention from hammering the stack constantly.
-// // // //     if (side == DeviceSide.left) {
-// // // //       if (_leftReconnectTimer != null && _leftReconnectTimer!.isActive) return;
-// // // //       _leftReconnectTimer = Timer(
-// // // //         Duration(seconds: _getBackoff(DeviceSide.left)),
-// // // //         () => _attemptSideReconnect(DeviceSide.left),
-// // // //       );
-// // // //     } else {
-// // // //       if (_rightReconnectTimer != null && _rightReconnectTimer!.isActive)
-// // // //         return;
-// // // //       _rightReconnectTimer = Timer(
-// // // //         Duration(seconds: _getBackoff(DeviceSide.right)),
-// // // //         () => _attemptSideReconnect(DeviceSide.right),
-// // // //       );
-// // // //     }
-// // // //   }
-
-// // // //   void _stopReconnectLoop(DeviceSide side) {
-// // // //     if (side == DeviceSide.left) {
-// // // //       _leftReconnectTimer?.cancel();
-// // // //       _leftReconnectTimer = null;
-// // // //       _leftAttemptInFlight = false;
-// // // //     } else {
-// // // //       _rightReconnectTimer?.cancel();
-// // // //       _rightReconnectTimer = null;
-// // // //       _rightAttemptInFlight = false;
-// // // //     }
-// // // //   }
-
-// // // //   Future<void> _attemptSideReconnect(DeviceSide side) async {
-// // // //     // ── Guard: skip if an attempt is already in progress for this side ─────
-// // // //     if (side == DeviceSide.left) {
-// // // //       if (_leftAttemptInFlight) return;
-// // // //       _leftAttemptInFlight = true;
-// // // //     } else {
-// // // //       if (_rightAttemptInFlight) return;
-// // // //       _rightAttemptInFlight = true;
-// // // //     }
-// // // //     // ─────────────────────────────────────────────────────────────────────────
-
-// // // //     try {
-// // // //       final state = await FlutterBluePlus.adapterState.first;
-// // // //       if (state != BluetoothAdapterState.on) {
-// // // //         _stopReconnectLoop(side);
-// // // //         return;
-// // // //       }
-
-// // // //       if (side == DeviceSide.left) {
-// // // //         final id = deviceInfo1.remoteId.str;
-// // // //         if (id == 'str' || devices.item1.isConnected) {
-// // // //           _stopReconnectLoop(DeviceSide.left);
-// // // //           return;
-// // // //         }
-// // // //         try {
-// // // //           await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
-// // // //           // Success: backoff reset handled inside connect()
-// // // //         } catch (_) {
-// // // //           // Failed: back off longer before next attempt, then reschedule
-// // // //           _increaseBackoff(DeviceSide.left);
-// // // //           _leftReconnectTimer = null; // Allow _startReconnectLoop to proceed
-// // // //           _startReconnectLoop(DeviceSide.left);
-// // // //         }
-// // // //       } else {
-// // // //         final id = deviceInfo2.remoteId.str;
-// // // //         if (id == 'str' || devices.item2.isConnected) {
-// // // //           _stopReconnectLoop(DeviceSide.right);
-// // // //           return;
-// // // //         }
-// // // //         try {
-// // // //           await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
-// // // //           // Success: backoff reset handled inside connect()
-// // // //         } catch (_) {
-// // // //           // Failed: back off longer before next attempt, then reschedule
-// // // //           _increaseBackoff(DeviceSide.right);
-// // // //           _rightReconnectTimer = null; // Allow _startReconnectLoop to proceed
-// // // //           _startReconnectLoop(DeviceSide.right);
-// // // //         }
-// // // //       }
-// // // //     } finally {
-// // // //       // ── Always release the in-flight guard when done ──────────────────────
-// // // //       if (side == DeviceSide.left) {
-// // // //         _leftAttemptInFlight = false;
-// // // //       } else {
-// // // //         _rightAttemptInFlight = false;
-// // // //       }
-// // // //     }
-// // // //   }
-
-// // // //   void ApplyPreset({
-// // // //     required DeviceSide deviceSide,
-// // // //     required Presets preset,
-// // // //   }) async {
+// // // //   void ApplyPreset({required DeviceSide deviceSide, required Presets preset}) async {
 // // // //     if (deviceSide == DeviceSide.left && !devices.item1.isConnected) return;
 // // // //     if (deviceSide == DeviceSide.right && !devices.item2.isConnected) return;
 
@@ -1453,7 +2091,6 @@
 // // // //     } else {
 // // // //       preSets["run"] = value;
 // // // //     }
-
 // // // //     _saveState();
 // // // //     update();
 // // // //   }
@@ -1519,8 +2156,12 @@
 // // //   StreamSubscription? _leftSubscription;
 // // //   StreamSubscription? _rightSubscription;
 
-// // //   BluetoothDevice deviceInfo1 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
-// // //   BluetoothDevice deviceInfo2 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
+// // //   BluetoothDevice deviceInfo1 = BluetoothDevice(
+// // //     remoteId: DeviceIdentifier("str"),
+// // //   );
+// // //   BluetoothDevice deviceInfo2 = BluetoothDevice(
+// // //     remoteId: DeviceIdentifier("str"),
+// // //   );
 // // //   String deviceInfoName1 = "";
 // // //   String deviceInfoName2 = "";
 
@@ -1603,12 +2244,12 @@
 
 // // //     if (leftId != 'str' && !devices.item1.isConnected && !_leftConnecting) {
 // // //       try {
-// // //         await connect(device: deviceInfo1, deviceSide: DeviceSide.left);
+// // //         connect(device: deviceInfo1, deviceSide: DeviceSide.left);
 // // //       } catch (_) {}
 // // //     }
 // // //     if (rightId != 'str' && !devices.item2.isConnected && !_rightConnecting) {
 // // //       try {
-// // //         await connect(device: deviceInfo2, deviceSide: DeviceSide.right);
+// // //         connect(device: deviceInfo2, deviceSide: DeviceSide.right);
 // // //       } catch (_) {}
 // // //     }
 
@@ -1931,7 +2572,9 @@
 
 // // //   Future<void> scan() async {
 // // //     devices.item1.startScan().listen((results) {
-// // //       scanResults = results.where((r) => r.device.advName.startsWith('PUCK_')).toList();
+// // //       scanResults = results
+// // //           .where((r) => r.device.advName.startsWith('PUCK_'))
+// // //           .toList();
 // // //       update();
 // // //     });
 // // //   }
@@ -2012,8 +2655,12 @@
 // // //       final dynamic p1 = _box.read('batteryPercentage1');
 // // //       final dynamic v1 = _box.read('batteryVoltage1');
 // // //       final double? cy1 = _box.read<double>('batteryCurrentCycle1');
-// // //       batteryInfo1.batteryPercentage = p1 is num ? p1.toDouble() : batteryInfo1.batteryPercentage;
-// // //       batteryInfo1.batteryVoltage = v1 is num ? v1.toDouble() : batteryInfo1.batteryVoltage;
+// // //       batteryInfo1.batteryPercentage = p1 is num
+// // //           ? p1.toDouble()
+// // //           : batteryInfo1.batteryPercentage;
+// // //       batteryInfo1.batteryVoltage = v1 is num
+// // //           ? v1.toDouble()
+// // //           : batteryInfo1.batteryVoltage;
 // // //       batteryInfo1.currentCycle = cy1 ?? batteryInfo1.currentCycle;
 // // //     }
 // // //     final int? cur1 = _box.read<int>('currentPressure1');
@@ -2033,8 +2680,12 @@
 // // //       final dynamic p2 = _box.read('batteryPercentage2');
 // // //       final dynamic v2 = _box.read('batteryVoltage2');
 // // //       final double? cy2 = _box.read<double>('batteryCurrentCycle2');
-// // //       batteryInfo2.batteryPercentage = p2 is num ? p2.toDouble() : batteryInfo2.batteryPercentage;
-// // //       batteryInfo2.batteryVoltage = v2 is num ? v2.toDouble() : batteryInfo2.batteryVoltage;
+// // //       batteryInfo2.batteryPercentage = p2 is num
+// // //           ? p2.toDouble()
+// // //           : batteryInfo2.batteryPercentage;
+// // //       batteryInfo2.batteryVoltage = v2 is num
+// // //           ? v2.toDouble()
+// // //           : batteryInfo2.batteryVoltage;
 // // //       batteryInfo2.currentCycle = cy2 ?? batteryInfo2.currentCycle;
 // // //     }
 // // //     final int? cur2 = _box.read<int>('currentPressure2');
@@ -2058,7 +2709,10 @@
 // // //     update();
 // // //   }
 
-// // //   void ApplyPreset({required DeviceSide deviceSide, required Presets preset}) async {
+// // //   void ApplyPreset({
+// // //     required DeviceSide deviceSide,
+// // //     required Presets preset,
+// // //   }) async {
 // // //     if (deviceSide == DeviceSide.left && !devices.item1.isConnected) return;
 // // //     if (deviceSide == DeviceSide.right && !devices.item2.isConnected) return;
 
@@ -2156,12 +2810,8 @@
 // //   StreamSubscription? _leftSubscription;
 // //   StreamSubscription? _rightSubscription;
 
-// //   BluetoothDevice deviceInfo1 = BluetoothDevice(
-// //     remoteId: DeviceIdentifier("str"),
-// //   );
-// //   BluetoothDevice deviceInfo2 = BluetoothDevice(
-// //     remoteId: DeviceIdentifier("str"),
-// //   );
+// //   BluetoothDevice deviceInfo1 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
+// //   BluetoothDevice deviceInfo2 = BluetoothDevice(remoteId: DeviceIdentifier("str"));
 // //   String deviceInfoName1 = "";
 // //   String deviceInfoName2 = "";
 
@@ -2242,16 +2892,13 @@
 // //     final rightId = deviceInfo2.remoteId.str;
 // //     if (leftId == 'str' && rightId == 'str') return;
 
-// //     if (leftId != 'str' && !devices.item1.isConnected && !_leftConnecting) {
-// //       try {
-// //         connect(device: deviceInfo1, deviceSide: DeviceSide.left);
-// //       } catch (_) {}
-// //     }
-// //     if (rightId != 'str' && !devices.item2.isConnected && !_rightConnecting) {
-// //       try {
-// //         connect(device: deviceInfo2, deviceSide: DeviceSide.right);
-// //       } catch (_) {}
-// //     }
+// //     // Run both sides in parallel — neither waits for the other.
+// //     await Future.wait([
+// //       if (leftId != 'str' && !devices.item1.isConnected && !_leftConnecting)
+// //         connect(device: deviceInfo1, deviceSide: DeviceSide.left).catchError((_) {}),
+// //       if (rightId != 'str' && !devices.item2.isConnected && !_rightConnecting)
+// //         connect(device: deviceInfo2, deviceSide: DeviceSide.right).catchError((_) {}),
+// //     ]);
 
 // //     _startReconnectScan();
 // //     update();
@@ -2284,6 +2931,10 @@
 // //     );
 
 // //     _scanSubscription = FlutterBluePlus.scanResults.listen((results) async {
+// //       // Collect futures for both sides so they connect in parallel,
+// //       // not one-after-the-other as the for-loop iterates.
+// //       final futures = <Future>[];
+
 // //       for (final result in results) {
 // //         final id = result.device.remoteId.str;
 
@@ -2291,34 +2942,32 @@
 // //             !devices.item1.isConnected &&
 // //             !_leftConnecting) {
 // //           _leftConnecting = true;
-// //           try {
-// //             await connect(device: result.device, deviceSide: DeviceSide.left);
-// //           } catch (_) {
-// //           } finally {
-// //             _leftConnecting = false;
-// //           }
+// //           futures.add(
+// //             connect(device: result.device, deviceSide: DeviceSide.left)
+// //                 .catchError((_) {})
+// //                 .whenComplete(() => _leftConnecting = false),
+// //           );
 // //         }
 
 // //         if (id == deviceInfo2.remoteId.str &&
 // //             !devices.item2.isConnected &&
 // //             !_rightConnecting) {
 // //           _rightConnecting = true;
-// //           try {
-// //             await connect(device: result.device, deviceSide: DeviceSide.right);
-// //           } catch (_) {
-// //           } finally {
-// //             _rightConnecting = false;
-// //           }
-// //         }
-
-// //         final bothDone =
-// //             (deviceInfo1.remoteId.str == 'str' || devices.item1.isConnected) &&
-// //             (deviceInfo2.remoteId.str == 'str' || devices.item2.isConnected);
-// //         if (bothDone) {
-// //           _stopReconnectScan();
-// //           break;
+// //           futures.add(
+// //             connect(device: result.device, deviceSide: DeviceSide.right)
+// //                 .catchError((_) {})
+// //                 .whenComplete(() => _rightConnecting = false),
+// //           );
 // //         }
 // //       }
+
+// //       // Await both simultaneously -- right side never waits for left.
+// //       await Future.wait(futures);
+
+// //       final bothDone =
+// //           (deviceInfo1.remoteId.str == 'str' || devices.item1.isConnected) &&
+// //           (deviceInfo2.remoteId.str == 'str' || devices.item2.isConnected);
+// //       if (bothDone) _stopReconnectScan();
 // //     });
 // //   }
 
@@ -2572,9 +3221,7 @@
 
 // //   Future<void> scan() async {
 // //     devices.item1.startScan().listen((results) {
-// //       scanResults = results
-// //           .where((r) => r.device.advName.startsWith('PUCK_'))
-// //           .toList();
+// //       scanResults = results.where((r) => r.device.advName.startsWith('PUCK_')).toList();
 // //       update();
 // //     });
 // //   }
@@ -2655,12 +3302,8 @@
 // //       final dynamic p1 = _box.read('batteryPercentage1');
 // //       final dynamic v1 = _box.read('batteryVoltage1');
 // //       final double? cy1 = _box.read<double>('batteryCurrentCycle1');
-// //       batteryInfo1.batteryPercentage = p1 is num
-// //           ? p1.toDouble()
-// //           : batteryInfo1.batteryPercentage;
-// //       batteryInfo1.batteryVoltage = v1 is num
-// //           ? v1.toDouble()
-// //           : batteryInfo1.batteryVoltage;
+// //       batteryInfo1.batteryPercentage = p1 is num ? p1.toDouble() : batteryInfo1.batteryPercentage;
+// //       batteryInfo1.batteryVoltage = v1 is num ? v1.toDouble() : batteryInfo1.batteryVoltage;
 // //       batteryInfo1.currentCycle = cy1 ?? batteryInfo1.currentCycle;
 // //     }
 // //     final int? cur1 = _box.read<int>('currentPressure1');
@@ -2680,12 +3323,8 @@
 // //       final dynamic p2 = _box.read('batteryPercentage2');
 // //       final dynamic v2 = _box.read('batteryVoltage2');
 // //       final double? cy2 = _box.read<double>('batteryCurrentCycle2');
-// //       batteryInfo2.batteryPercentage = p2 is num
-// //           ? p2.toDouble()
-// //           : batteryInfo2.batteryPercentage;
-// //       batteryInfo2.batteryVoltage = v2 is num
-// //           ? v2.toDouble()
-// //           : batteryInfo2.batteryVoltage;
+// //       batteryInfo2.batteryPercentage = p2 is num ? p2.toDouble() : batteryInfo2.batteryPercentage;
+// //       batteryInfo2.batteryVoltage = v2 is num ? v2.toDouble() : batteryInfo2.batteryVoltage;
 // //       batteryInfo2.currentCycle = cy2 ?? batteryInfo2.currentCycle;
 // //     }
 // //     final int? cur2 = _box.read<int>('currentPressure2');
@@ -2709,10 +3348,7 @@
 // //     update();
 // //   }
 
-// //   void ApplyPreset({
-// //     required DeviceSide deviceSide,
-// //     required Presets preset,
-// //   }) async {
+// //   void ApplyPreset({required DeviceSide deviceSide, required Presets preset}) async {
 // //     if (deviceSide == DeviceSide.left && !devices.item1.isConnected) return;
 // //     if (deviceSide == DeviceSide.right && !devices.item2.isConnected) return;
 
@@ -2882,8 +3518,10 @@
 //     }
 //   }
 
-//   // Try a direct connect first (fast if device is already nearby/cached).
-//   // If it fails because the device is off, _startReconnectScan() catches it.
+//   // Skip direct connect entirely — always go straight to scan.
+//   // Direct connect hangs 20-40s when a device is off (BLE timeout).
+//   // The scan finds devices the instant they advertise (1-2s when on),
+//   // and simply never fires for devices that are off — zero delay either way.
 //   Future<void> _autoReconnect() async {
 //     final state = await FlutterBluePlus.adapterState.first;
 //     if (state != BluetoothAdapterState.on) return;
@@ -2891,14 +3529,6 @@
 //     final leftId = deviceInfo1.remoteId.str;
 //     final rightId = deviceInfo2.remoteId.str;
 //     if (leftId == 'str' && rightId == 'str') return;
-
-//     // Run both sides in parallel — neither waits for the other.
-//     await Future.wait([
-//       if (leftId != 'str' && !devices.item1.isConnected && !_leftConnecting)
-//         connect(device: deviceInfo1, deviceSide: DeviceSide.left).catchError((_) {}),
-//       if (rightId != 'str' && !devices.item2.isConnected && !_rightConnecting)
-//         connect(device: deviceInfo2, deviceSide: DeviceSide.right).catchError((_) {}),
-//     ]);
 
 //     _startReconnectScan();
 //     update();
@@ -3735,6 +4365,10 @@ class BleController extends GetxController with WidgetsBindingObserver {
       scanResults = [];
     }
 
+    // Force-restart the scan so the listener is fresh for this reconnect.
+    // If we just call _startReconnectScan() while _isScanning is true it
+    // returns early and the disconnected device is never watched for.
+    _stopReconnectScan();
     _startReconnectScan();
     _saveState();
     update();
