@@ -1,5 +1,3 @@
-
-
 // import 'dart:math' as math;
 // import 'package:flutter/material.dart';
 
@@ -617,7 +615,6 @@
 //   }
 // }
 
-
 import 'dart:math' as math;
 import 'package:flutter/material.dart';
 
@@ -811,7 +808,7 @@ class VacuumGaugePainter extends CustomPainter {
   @override
   void paint(Canvas canvas, Size size) {
     final center = Offset(size.width / 2, size.height / 2);
-    final radius = size.width / 2 - 40;
+    final radius = size.width / 2 - 10;
     final strokeWidth = 45.0;
 
     final startAngle = 3 * math.pi / 4;

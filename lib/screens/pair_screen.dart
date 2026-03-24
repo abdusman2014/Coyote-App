@@ -813,49 +813,63 @@ class _PairScreenState extends State<PairScreen> {
     ].request();
   }
 
-  Future<void> _startScan() async {
-    // Cancel any existing scan subscription before starting a new one
-    _scanSubscription?.cancel();
-    _bleController.devices.item1.stopScan();
+Future<void> _startScan() async {
+  // Check if Bluetooth is on
+  BluetoothAdapterState state = await FlutterBluePlus.adapterState.first;
+
+  if (state != BluetoothAdapterState.on) {
+    // Android: programmatically turn on
+    await FlutterBluePlus.turnOn();
+
+    // Wait until it's actually on
+    await FlutterBluePlus.adapterState
+        .where((s) => s == BluetoothAdapterState.on)
+        .first;
+  }
+
+  // Cancel any existing scan subscription before starting a new one
+  _scanSubscription?.cancel();
+  _bleController.devices.item1.stopScan();
+
+  setState(() {
+    _scanResults = [];
+    _isScanning = true;
+    _connectStates = [];
+  });
+
+  _scanSubscription = _bleController.devices.item1.startScan().listen((
+    results,
+  ) {
+    // Filter only PUCK_ devices and de-duplicate by remoteId so that
+    // the same physical device is only shown once.
+    final Map<String, ScanResult> uniqueById = {};
+    for (final result in results) {
+      final name = result.device.advName;
+      if (!name.startsWith('PUCK_')) continue;
+      uniqueById[result.device.remoteId.str] = result;
+    }
+    final filteredResults = uniqueById.values.toList();
 
     setState(() {
-      _scanResults = [];
-      _isScanning = true;
-      _connectStates = [];
+      _scanResults = filteredResults;
+      _connectStates = List<_ConnectState>.filled(
+        _scanResults.length,
+        _ConnectState.idle,
+      );
     });
-    _scanSubscription = _bleController.devices.item1.startScan().listen((
-      results,
-    ) {
-      // Filter only PUCK_ devices and de-duplicate by remoteId so that
-      // the same physical device is only shown once.
-      final Map<String, ScanResult> uniqueById = {};
-      for (final result in results) {
-        final name = result.device.advName;
-        if (!name.startsWith('PUCK_')) continue;
-        uniqueById[result.device.remoteId.str] = result;
-      }
-      final filteredResults = uniqueById.values.toList();
 
-      setState(() {
-        _scanResults = filteredResults;
-        _connectStates = List<_ConnectState>.filled(
-          _scanResults.length,
-          _ConnectState.idle,
+    // Auto-scroll to bottom so newly listed devices are visible
+    WidgetsBinding.instance.addPostFrameCallback((_) {
+      if (_scrollController.hasClients) {
+        _scrollController.animateTo(
+          _scrollController.position.maxScrollExtent,
+          duration: const Duration(milliseconds: 400),
+          curve: Curves.easeOut,
         );
-      });
-
-      // Auto-scroll to bottom so newly listed devices are visible
-      WidgetsBinding.instance.addPostFrameCallback((_) {
-        if (_scrollController.hasClients) {
-          _scrollController.animateTo(
-            _scrollController.position.maxScrollExtent,
-            duration: const Duration(milliseconds: 400),
-            curve: Curves.easeOut,
-          );
-        }
-      });
+      }
     });
-  }
+  });
+}
 
   Future<void> _connect(BluetoothDevice device) async {
     await _bleController.connect(
