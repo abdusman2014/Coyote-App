@@ -762,7 +762,6 @@
 
 // enum _ConnectState { idle, connecting, connected }
 
-
 import 'dart:async';
 import 'dart:math' as math;
 import 'package:coyote_app/controller/ble_controller.dart';
@@ -813,63 +812,63 @@ class _PairScreenState extends State<PairScreen> {
     ].request();
   }
 
-Future<void> _startScan() async {
-  // Check if Bluetooth is on
-  BluetoothAdapterState state = await FlutterBluePlus.adapterState.first;
+  Future<void> _startScan() async {
+    // Check if Bluetooth is on
+    BluetoothAdapterState state = await FlutterBluePlus.adapterState.first;
 
-  if (state != BluetoothAdapterState.on) {
-    // Android: programmatically turn on
-    await FlutterBluePlus.turnOn();
+    if (state != BluetoothAdapterState.on) {
+      // Android: programmatically turn on
+      await FlutterBluePlus.turnOn();
 
-    // Wait until it's actually on
-    await FlutterBluePlus.adapterState
-        .where((s) => s == BluetoothAdapterState.on)
-        .first;
-  }
-
-  // Cancel any existing scan subscription before starting a new one
-  _scanSubscription?.cancel();
-  _bleController.devices.item1.stopScan();
-
-  setState(() {
-    _scanResults = [];
-    _isScanning = true;
-    _connectStates = [];
-  });
-
-  _scanSubscription = _bleController.devices.item1.startScan().listen((
-    results,
-  ) {
-    // Filter only PUCK_ devices and de-duplicate by remoteId so that
-    // the same physical device is only shown once.
-    final Map<String, ScanResult> uniqueById = {};
-    for (final result in results) {
-      final name = result.device.advName;
-      if (!name.startsWith('PUCK_')) continue;
-      uniqueById[result.device.remoteId.str] = result;
+      // Wait until it's actually on
+      await FlutterBluePlus.adapterState
+          .where((s) => s == BluetoothAdapterState.on)
+          .first;
     }
-    final filteredResults = uniqueById.values.toList();
+
+    // Cancel any existing scan subscription before starting a new one
+    _scanSubscription?.cancel();
+    _bleController.devices.item1.stopScan();
 
     setState(() {
-      _scanResults = filteredResults;
-      _connectStates = List<_ConnectState>.filled(
-        _scanResults.length,
-        _ConnectState.idle,
-      );
+      _scanResults = [];
+      _isScanning = true;
+      _connectStates = [];
     });
 
-    // Auto-scroll to bottom so newly listed devices are visible
-    WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (_scrollController.hasClients) {
-        _scrollController.animateTo(
-          _scrollController.position.maxScrollExtent,
-          duration: const Duration(milliseconds: 400),
-          curve: Curves.easeOut,
-        );
+    _scanSubscription = _bleController.devices.item1.startScan().listen((
+      results,
+    ) {
+      // Filter only PUCK_ devices and de-duplicate by remoteId so that
+      // the same physical device is only shown once.
+      final Map<String, ScanResult> uniqueById = {};
+      for (final result in results) {
+        final name = result.device.advName;
+        if (!name.startsWith('PUCK_')) continue;
+        uniqueById[result.device.remoteId.str] = result;
       }
+      final filteredResults = uniqueById.values.toList();
+
+      setState(() {
+        _scanResults = filteredResults;
+        _connectStates = List<_ConnectState>.filled(
+          _scanResults.length,
+          _ConnectState.idle,
+        );
+      });
+
+      // Auto-scroll to bottom so newly listed devices are visible
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (_scrollController.hasClients) {
+          _scrollController.animateTo(
+            _scrollController.position.maxScrollExtent,
+            duration: const Duration(milliseconds: 400),
+            curve: Curves.easeOut,
+          );
+        }
+      });
     });
-  });
-}
+  }
 
   Future<void> _connect(BluetoothDevice device) async {
     await _bleController.connect(
@@ -1159,11 +1158,12 @@ class _DeviceCardState extends State<_DeviceCard> {
     return GestureDetector(
       onTap: widget.onTap,
       child: AspectRatio(
-        aspectRatio: 0.9,
+        aspectRatio: 0.85,
         child: Container(
           decoration: BoxDecoration(
             color: background,
             borderRadius: BorderRadius.circular(30),
+
             border: Border.all(color: borderColor, width: 2),
             boxShadow: widget.isSelected
                 ? [
@@ -1230,7 +1230,7 @@ class _DeviceCardState extends State<_DeviceCard> {
                         child: _isDisconnecting
                             ? SizedBox(
                                 height: 15,
-                                width: 15,
+                                width: 25,
                                 child: CircularProgressIndicator(
                                   color: AppColors.navBarBackground,
                                 ),

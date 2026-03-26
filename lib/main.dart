@@ -1,3 +1,40 @@
+// import 'package:coyote_app/controller/ble_controller.dart';
+// import 'package:flutter/material.dart';
+// import 'package:get/get.dart';
+// import 'package:get_storage/get_storage.dart';
+// import 'theme/app_colors.dart';
+// import 'screens/splash_screen.dart';
+
+// Future<void> main() async {
+//   WidgetsFlutterBinding.ensureInitialized();
+//   await GetStorage.init();
+//   Get.put<BleController>(BleController());
+//   runApp(const CoyoteApp());
+// }
+
+// class CoyoteApp extends StatelessWidget {
+//   const CoyoteApp({super.key});
+
+//   @override
+//   Widget build(BuildContext context) {
+//     return GetMaterialApp(
+//       title: 'Coyote',
+//       debugShowCheckedModeBanner: false,
+//       theme: ThemeData(
+//         fontFamily: 'Poppins',
+//         colorScheme: ColorScheme.dark(
+//           primary: AppColors.primary,
+//           surface: AppColors.surface,
+//           onPrimary: AppColors.textPrimary,
+//           onSurface: AppColors.textPrimary,
+//         ),
+//         scaffoldBackgroundColor: AppColors.background,
+//       ),
+//       home: const SplashScreen(),
+//     );
+//   }
+// }
+
 import 'package:coyote_app/controller/ble_controller.dart';
 import 'package:flutter/material.dart';
 import 'package:get/get.dart';
@@ -30,6 +67,16 @@ class CoyoteApp extends StatelessWidget {
         ),
         scaffoldBackgroundColor: AppColors.background,
       ),
+      builder: (context, child) {
+        return MediaQuery(
+          data: MediaQuery.of(context).copyWith(
+            textScaler: MediaQuery.of(
+              context,
+            ).textScaler.clamp(minScaleFactor: 1.0, maxScaleFactor: 1.0),
+          ),
+          child: child!,
+        );
+      },
       home: const SplashScreen(),
     );
   }

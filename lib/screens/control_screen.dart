@@ -3913,290 +3913,335 @@ class _ControlScreenState extends State<ControlScreen> {
         return Scaffold(
           body: CoyoteBackground(
             child: SafeArea(
-              child: Padding(
-                padding: const EdgeInsets.symmetric(horizontal: 24),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.stretch,
-                  children: [
-                    SizedBox(height: 20),
-                    _buildHeader(),
-                    const SizedBox(height: 28),
-                    SegmentedControl<String>(
-                      options: [
-                        SegmentOption(
-                          label: 'Left',
-                          imageUri: _bleController.sideIndex == 0
-                              ? "assets/images/left_white.svg"
-                              : "assets/images/left_grey.svg",
-                          isConnected: true,
+              child: LayoutBuilder(
+                builder: (context, constraints) {
+                  final width = constraints.maxWidth;
+                  final height = constraints.maxHeight;
+                  final scale = (width / 393).clamp(0.84, 1.18);
+
+                  final horizontalPadding = (24 * scale)
+                      .clamp(16, 32)
+                      .toDouble();
+                  final gapTop = (20 * scale).toDouble();
+                  final gapAfterHeader = (28 * scale).toDouble();
+                  final gapAfterSideSegment = (20 * scale).toDouble();
+                  final gapAfterActions = (32 * scale).toDouble();
+                  final gapBeforeButton = (8 * scale).toDouble();
+                  final statusRowHeight = (76 * scale).clamp(64, 96).toDouble();
+
+                  final minGaugeHeight = (height * 0.34).clamp(180.0, 360.0);
+
+                  return Padding(
+                    padding: EdgeInsets.symmetric(
+                      horizontal: horizontalPadding,
+                    ),
+                    child: Column(
+                      crossAxisAlignment: CrossAxisAlignment.stretch,
+                      children: [
+                        SizedBox(height: gapTop),
+                        _buildHeader(),
+                        SizedBox(height: gapAfterHeader),
+                        SegmentedControl<String>(
+                          options: [
+                            SegmentOption(
+                              label: 'Left',
+                              imageUri: _bleController.sideIndex == 0
+                                  ? "assets/images/left_white.svg"
+                                  : "assets/images/left_grey.svg",
+                              isConnected: true,
+                            ),
+                            SegmentOption(
+                              label: 'Right',
+                              imageUri: _bleController.sideIndex == 1
+                                  ? "assets/images/right_white.svg"
+                                  : "assets/images/right_grey.svg",
+                              isConnected: true,
+                            ),
+                          ],
+                          selectedIndex: _bleController.sideIndex,
+                          onChanged: (i) {
+                            _bleController.sideIndex = i;
+                            _bleController.update();
+                          },
                         ),
-                        SegmentOption(
-                          label: 'Right',
-                          imageUri: _bleController.sideIndex == 1
-                              ? "assets/images/right_white.svg"
-                              : "assets/images/right_grey.svg",
-                          isConnected: true,
-                        ),
-                      ],
-                      selectedIndex: _bleController.sideIndex,
-                      onChanged: (i) {
-                        _bleController.sideIndex = i;
-                        _bleController.update();
-                      },
-                    ),
-                    const SizedBox(height: 20),
-
-                    Expanded(
-                      child:
-                          _bleController.isConnected(
-                            deviceSide: _bleController.sideIndex == 0
-                                ? DeviceSide.left
-                                : DeviceSide.right,
-                          )
-                          ? Align(
-                              alignment: Alignment.center,
-                              child: VacuumGaugeSlider(
-                                minValue: 0,
-                                maxValue: 20,
-                                currentValue: _bleController
-                                    .getCurrentPressure(
-                                      _bleController.sideIndex == 0
-                                          ? DeviceSide.left
-                                          : DeviceSide.right,
-                                    )
-                                    .toDouble(),
-                                targetValue: _bleController
-                                    .getTargetPressure(
-                                      _bleController.sideIndex == 0
-                                          ? DeviceSide.left
-                                          : DeviceSide.right,
-                                    )
-                                    .toDouble(),
-                                onChanged: (value) async {
-                                  final side = _bleController.sideIndex == 0
-                                      ? DeviceSide.left
-                                      : DeviceSide.right;
-                                  _bleController.removePreset(side);
-                                  _bleController.setGuage(
-                                    pressure: value.toInt(),
-                                    deviceSide: side,
-                                  );
-                                },
-                              ),
-                            )
-                          : SvgPicture.asset("assets/images/value_bar.svg"),
-                    ),
-                    Container(
-                      height: 58,
-
-                      decoration: BoxDecoration(
-                        color: AppColors.segmentContainer,
-                        borderRadius: BorderRadius.circular(12),
-                        boxShadow: [
-                          BoxShadow(
-                            color: Colors.black.withValues(alpha: 0.2),
-                            blurRadius: 4,
-                            offset: const Offset(0, 1),
-                          ),
-                        ],
-                      ),
-                      child: Row(
-                        // mainAxisAlignment: MainAxisAlignment.spaceBetween,
-                        children: [
-                          ActionWidget(
-                            imageUri:
-                                _bleController.getSelectedPreset(
-                                          _bleController.sideIndex == 0
-                                              ? DeviceSide.left
-                                              : DeviceSide.right,
-                                        ) ==
-                                        Presets.sit &&
-                                    _bleController.isConnected(
-                                      deviceSide: _bleController.sideIndex == 0
-                                          ? DeviceSide.left
-                                          : DeviceSide.right,
-                                    )
-                                ? "assets/images/sit_white.svg"
-                                : "assets/images/sit_grey.svg",
-                            label: "Sit",
-                            isSelected:
-                                _bleController.getSelectedPreset(
-                                      _bleController.sideIndex == 0
-                                          ? DeviceSide.left
-                                          : DeviceSide.right,
-                                    ) ==
-                                    Presets.sit &&
-                                _bleController.isConnected(
-                                  deviceSide: _bleController.sideIndex == 0
-                                      ? DeviceSide.left
-                                      : DeviceSide.right,
-                                ),
-                            onPress: () => _onPresetPressed(Presets.sit),
-                          ),
-                          ActionWidget(
-                            imageUri:
-                                _bleController.getSelectedPreset(
-                                          _bleController.sideIndex == 0
-                                              ? DeviceSide.left
-                                              : DeviceSide.right,
-                                        ) ==
-                                        Presets.walk &&
-                                    _bleController.isConnected(
-                                      deviceSide: _bleController.sideIndex == 0
-                                          ? DeviceSide.left
-                                          : DeviceSide.right,
-                                    )
-                                ? "assets/images/walk_white.svg"
-                                : "assets/images/walk_grey.svg",
-                            label: "Walk",
-                            isSelected:
-                                _bleController.getSelectedPreset(
-                                      _bleController.sideIndex == 0
-                                          ? DeviceSide.left
-                                          : DeviceSide.right,
-                                    ) ==
-                                    Presets.walk &&
-                                _bleController.isConnected(
-                                  deviceSide: _bleController.sideIndex == 0
-                                      ? DeviceSide.left
-                                      : DeviceSide.right,
-                                ),
-                            onPress: () => _onPresetPressed(Presets.walk),
-                          ),
-                          ActionWidget(
-                            imageUri:
-                                _bleController.getSelectedPreset(
-                                          _bleController.sideIndex == 0
-                                              ? DeviceSide.left
-                                              : DeviceSide.right,
-                                        ) ==
-                                        Presets.run &&
-                                    _bleController.isConnected(
-                                      deviceSide: _bleController.sideIndex == 0
-                                          ? DeviceSide.left
-                                          : DeviceSide.right,
-                                    )
-                                ? "assets/images/run_white.svg"
-                                : "assets/images/run_grey.svg",
-                            label: "Run",
-                            isSelected:
-                                _bleController.getSelectedPreset(
-                                      _bleController.sideIndex == 0
-                                          ? DeviceSide.left
-                                          : DeviceSide.right,
-                                    ) ==
-                                    Presets.run &&
-                                _bleController.isConnected(
-                                  deviceSide: _bleController.sideIndex == 0
-                                      ? DeviceSide.left
-                                      : DeviceSide.right,
-                                ),
-                            onPress: () => _onPresetPressed(Presets.run),
-                          ),
-                        ],
-                      ),
-                    ),
-
-                    const SizedBox(height: 32),
-                    SizedBox(
-                      height: 76,
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: StatusCard(
-                              title: 'Bluetooth',
-                              isConnected: _bleController.isConnected(
+                        SizedBox(height: gapAfterSideSegment),
+                        Expanded(
+                          // flex: 12,
+                          child:
+                              _bleController.isConnected(
                                 deviceSide: _bleController.sideIndex == 0
                                     ? DeviceSide.left
                                     : DeviceSide.right,
-                              ),
-                              subtitle:
-                                  _bleController.isConnected(
+                              )
+                              ? Align(
+                                  alignment: Alignment.center,
+                                  child: ConstrainedBox(
+                                    constraints: BoxConstraints(
+                                      maxHeight: minGaugeHeight,
+                                      maxWidth: width,
+                                    ),
+                                    child: VacuumGaugeSlider(
+                                      minValue: 0,
+                                      maxValue: 20,
+                                      currentValue: _bleController
+                                          .getCurrentPressure(
+                                            _bleController.sideIndex == 0
+                                                ? DeviceSide.left
+                                                : DeviceSide.right,
+                                          )
+                                          .toDouble(),
+                                      targetValue: _bleController
+                                          .getTargetPressure(
+                                            _bleController.sideIndex == 0
+                                                ? DeviceSide.left
+                                                : DeviceSide.right,
+                                          )
+                                          .toDouble(),
+                                      onChanged: (value) async {
+                                        print(value);
+                                        final side =
+                                            _bleController.sideIndex == 0
+                                            ? DeviceSide.left
+                                            : DeviceSide.right;
+                                        _bleController.removePreset(side);
+                                        _bleController.setGuage(
+                                          pressure: value.toInt(),
+                                          deviceSide: side,
+                                        );
+                                      },
+                                    ),
+                                  ),
+                                )
+                              : Align(
+                                  alignment: Alignment.center,
+                                  child: SvgPicture.asset(
+                                    "assets/images/value_bar.svg",
+                                  ),
+                                ),
+                        ),
+                        SizedBox(height: 10),
+                        SizedBox(
+                          height: (58 * scale).clamp(52, 66).toDouble(),
+                          child: Container(
+                            decoration: BoxDecoration(
+                              color: AppColors.segmentContainer,
+                              borderRadius: BorderRadius.circular(12),
+                              boxShadow: [
+                                BoxShadow(
+                                  color: Colors.black.withValues(alpha: 0.2),
+                                  blurRadius: 4,
+                                  offset: const Offset(0, 1),
+                                ),
+                              ],
+                            ),
+                            child: Row(
+                              children: [
+                                ActionWidget(
+                                  imageUri:
+                                      _bleController.getSelectedPreset(
+                                                _bleController.sideIndex == 0
+                                                    ? DeviceSide.left
+                                                    : DeviceSide.right,
+                                              ) ==
+                                              Presets.sit &&
+                                          _bleController.isConnected(
+                                            deviceSide:
+                                                _bleController.sideIndex == 0
+                                                ? DeviceSide.left
+                                                : DeviceSide.right,
+                                          )
+                                      ? "assets/images/sit_white.svg"
+                                      : "assets/images/sit_grey.svg",
+                                  label: "Sit",
+                                  isSelected:
+                                      _bleController.getSelectedPreset(
+                                            _bleController.sideIndex == 0
+                                                ? DeviceSide.left
+                                                : DeviceSide.right,
+                                          ) ==
+                                          Presets.sit &&
+                                      _bleController.isConnected(
+                                        deviceSide:
+                                            _bleController.sideIndex == 0
+                                            ? DeviceSide.left
+                                            : DeviceSide.right,
+                                      ),
+                                  onPress: () => _onPresetPressed(Presets.sit),
+                                ),
+                                ActionWidget(
+                                  imageUri:
+                                      _bleController.getSelectedPreset(
+                                                _bleController.sideIndex == 0
+                                                    ? DeviceSide.left
+                                                    : DeviceSide.right,
+                                              ) ==
+                                              Presets.walk &&
+                                          _bleController.isConnected(
+                                            deviceSide:
+                                                _bleController.sideIndex == 0
+                                                ? DeviceSide.left
+                                                : DeviceSide.right,
+                                          )
+                                      ? "assets/images/walk_white.svg"
+                                      : "assets/images/walk_grey.svg",
+                                  label: "Walk",
+                                  isSelected:
+                                      _bleController.getSelectedPreset(
+                                            _bleController.sideIndex == 0
+                                                ? DeviceSide.left
+                                                : DeviceSide.right,
+                                          ) ==
+                                          Presets.walk &&
+                                      _bleController.isConnected(
+                                        deviceSide:
+                                            _bleController.sideIndex == 0
+                                            ? DeviceSide.left
+                                            : DeviceSide.right,
+                                      ),
+                                  onPress: () => _onPresetPressed(Presets.walk),
+                                ),
+                                ActionWidget(
+                                  imageUri:
+                                      _bleController.getSelectedPreset(
+                                                _bleController.sideIndex == 0
+                                                    ? DeviceSide.left
+                                                    : DeviceSide.right,
+                                              ) ==
+                                              Presets.run &&
+                                          _bleController.isConnected(
+                                            deviceSide:
+                                                _bleController.sideIndex == 0
+                                                ? DeviceSide.left
+                                                : DeviceSide.right,
+                                          )
+                                      ? "assets/images/run_white.svg"
+                                      : "assets/images/run_grey.svg",
+                                  label: "Run",
+                                  isSelected:
+                                      _bleController.getSelectedPreset(
+                                            _bleController.sideIndex == 0
+                                                ? DeviceSide.left
+                                                : DeviceSide.right,
+                                          ) ==
+                                          Presets.run &&
+                                      _bleController.isConnected(
+                                        deviceSide:
+                                            _bleController.sideIndex == 0
+                                            ? DeviceSide.left
+                                            : DeviceSide.right,
+                                      ),
+                                  onPress: () => _onPresetPressed(Presets.run),
+                                ),
+                              ],
+                            ),
+                          ),
+                        ),
+                        SizedBox(height: gapAfterActions),
+                        SizedBox(
+                          height: statusRowHeight,
+                          child: Row(
+                            children: [
+                              Expanded(
+                                child: StatusCard(
+                                  title: 'Bluetooth',
+                                  isConnected: _bleController.isConnected(
                                     deviceSide: _bleController.sideIndex == 0
                                         ? DeviceSide.left
                                         : DeviceSide.right,
-                                  )
-                                  ? 'Connected'
-                                  : "UnConnected",
-                              imageUri: "assets/images/bluetooth.svg",
-                              onTap: _onBluetoothTap,
-                            ),
-                          ),
-                          const SizedBox(width: 8),
-                          Expanded(
-                            child: StatusCard(
-                              title: 'Battery',
-                              isConnected: _bleController.isConnected(
-                                deviceSide: _bleController.sideIndex == 0
-                                    ? DeviceSide.left
-                                    : DeviceSide.right,
+                                  ),
+                                  subtitle:
+                                      _bleController.isConnected(
+                                        deviceSide:
+                                            _bleController.sideIndex == 0
+                                            ? DeviceSide.left
+                                            : DeviceSide.right,
+                                      )
+                                      ? 'Connected'
+                                      : "Disconnected",
+                                  imageUri: "assets/images/bluetooth.svg",
+                                  onTap: _onBluetoothTap,
+                                ),
                               ),
-                              imageUri: "assets/images/battery.svg",
-                              trailing:
-                                  _bleController.isConnected(
+                              SizedBox(width: (8 * scale).toDouble()),
+                              Expanded(
+                                child: StatusCard(
+                                  title: 'Battery',
+                                  isConnected: _bleController.isConnected(
                                     deviceSide: _bleController.sideIndex == 0
                                         ? DeviceSide.left
                                         : DeviceSide.right,
-                                  )
-                                  ? Row(
-                                      mainAxisSize: MainAxisSize.min,
-                                      children: [
-                                        if (_bleController
-                                                .getBatteryInfo(
-                                                  _bleController.sideIndex == 0
-                                                      ? DeviceSide.left
-                                                      : DeviceSide.right,
-                                                )
-                                                .chargingStatus ==
-                                            1) ...[
-                                          Icon(
-                                            Icons.bolt,
-                                            size: 18,
-                                            color: AppColors.success,
-                                          ),
-                                          const SizedBox(width: 4),
-                                        ],
-                                        Text(
-                                          '${_bleController.getBatteryInfo(_bleController.sideIndex == 0 ? DeviceSide.left : DeviceSide.right).batteryPercentage.toStringAsFixed(0)}%',
-                                          style: const TextStyle(
-                                            fontSize: 15,
-                                            fontWeight: FontWeight.w600,
-                                            color: AppColors.success,
-                                          ),
-                                        ),
-                                      ],
-                                    )
-                                  : Container(),
-                              onTap: _onBatteryTap,
-                            ),
+                                  ),
+                                  imageUri: "assets/images/battery.svg",
+                                  trailing:
+                                      _bleController.isConnected(
+                                        deviceSide:
+                                            _bleController.sideIndex == 0
+                                            ? DeviceSide.left
+                                            : DeviceSide.right,
+                                      )
+                                      ? Row(
+                                          mainAxisSize: MainAxisSize.min,
+                                          children: [
+                                            if (_bleController
+                                                    .getBatteryInfo(
+                                                      _bleController
+                                                                  .sideIndex ==
+                                                              0
+                                                          ? DeviceSide.left
+                                                          : DeviceSide.right,
+                                                    )
+                                                    .chargingStatus ==
+                                                1) ...[
+                                              Icon(
+                                                Icons.bolt,
+                                                size: 18,
+                                                color: AppColors.success,
+                                              ),
+                                              const SizedBox(width: 4),
+                                            ],
+                                            Text(
+                                              '${_bleController.getBatteryInfo(_bleController.sideIndex == 0 ? DeviceSide.left : DeviceSide.right).batteryPercentage.toStringAsFixed(0)}%',
+                                              style: const TextStyle(
+                                                fontSize: 15,
+                                                fontWeight: FontWeight.w600,
+                                                color: AppColors.success,
+                                              ),
+                                            ),
+                                          ],
+                                        )
+                                      : Container(),
+                                  onTap: _onBatteryTap,
+                                ),
+                              ),
+                            ],
                           ),
-                        ],
-                      ),
-                    ),
-                    const SizedBox(height: 8),
-                    PrimaryActionButton(
-                      label:
-                          _bleController.getPumpStatus(
+                        ),
+                        SizedBox(height: gapBeforeButton),
+                        PrimaryActionButton(
+                          label:
+                              _bleController.getPumpStatus(
+                                    _bleController.sideIndex == 0
+                                        ? DeviceSide.left
+                                        : DeviceSide.right,
+                                  ) ==
+                                  1
+                              ? 'Turn Off'
+                              : 'Turn On',
+                          icon: Icons.power_settings_new,
+                          onPressed: _onTurnOff,
+                          isOn:
+                              _bleController.getPumpStatus(
                                 _bleController.sideIndex == 0
                                     ? DeviceSide.left
                                     : DeviceSide.right,
                               ) ==
-                              1
-                          ? 'Turn Off'
-                          : 'Turn On',
-                      icon: Icons.power_settings_new,
-                      onPressed: _onTurnOff,
-                      isOn:
-                          _bleController.getPumpStatus(
-                            _bleController.sideIndex == 0
-                                ? DeviceSide.left
-                                : DeviceSide.right,
-                          ) ==
-                          1,
+                              1,
+                        ),
+                        SizedBox(height: (scale).toDouble()),
+                      ],
                     ),
-                    // const SizedBox(height: 20),
-                  ],
-                ),
+                  );
+                },
               ),
             ),
           ),

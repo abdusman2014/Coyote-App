@@ -2276,6 +2276,7 @@ class BleController extends GetxController with WidgetsBindingObserver {
         await devices.item1.connect(device);
         _leftSubscription?.cancel();
         _leftSubscription = devices.item1.messageStream.listen((msg) {
+          print("recv: " + msg);
           splitData(msg, DeviceSide.left);
         });
         await sendInitalMessages(DeviceSide.left);
